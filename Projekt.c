@@ -77,7 +77,7 @@ void wczytywanie_danych(const char *filename, Wektor *dane, uint32_t linie)
     fclose(pf);
 }
 
-void print_danych(const Wektor *dane, uint32_t linie, bool iftrain_data)
+void print_danych(const Wektor *dane, uint32_t linie, bool iftrain_data) //const bo tylko odczytujemy dane
 {
     printf("Dane %s:\n", iftrain_data ? "treningowe" : "testowe");
     for (uint32_t i = 0; i < linie - 1; i++)
@@ -87,7 +87,7 @@ void print_danych(const Wektor *dane, uint32_t linie, bool iftrain_data)
 }
 
 //obliczanie odleglosci euklidesowej
-double* distance(const Wektor *train_data, const Wektor *test_data, uint32_t linie_test_data){
+double* distance(const Wektor *train_data, const Wektor *test_data, uint32_t linie_test_data){ //nie chcemy modyfikowac struktur dlatego const
     double *distance = (double *)malloc(linie_test_data * sizeof(double));
     if(distance == NULL){
         printf("Blad alokacji pamieci!\n");
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     
     double *dystans = distance(train_data, test_data, linie[TEST_DATA]);
     printf("Odlegość euklidesowa dla wektorów TEST_DATA\n");
-    for(uint32_t i = 0; i < linie[TEST_DATA] - 1; i++){
+    for(uint32_t i = 0; i < linie[TEST_DATA] - 1; i++){ 
         printf("Odleglość dla elementu [%u] to: %lf\n", i+1, dystans[i]);
     }
 
