@@ -9,6 +9,10 @@
 #define TRAIN_DATA 0
 #define TEST_DATA 1
 
+// definiowanie typow
+#define DOUBLE 2
+#define WEKTOR 3
+
 char buffer[BUF_SIZE];
 
 const char *filename_train = "train_100linijek.txt";
@@ -78,25 +82,34 @@ Wektor *wczyt(const char *filename, Memory *mem)
     return mem->wektor;
 }
 
-void print_danych(const Wektor *dane, uint32_t linie, bool iftrain_data) // const bo tylko odczytujemy dane
+// funkcja pomocnicza
+void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylko odczytujemy dane
 {
-    printf("Dane %s:\n", iftrain_data ? "treningowe" : "testowe");
-    for (uint32_t i = 0; i < linie - 1; i++)
+
+    if (typ == WEKTOR)
     {
-        printf("Dane %s [%d]: x: %lf, y:  %lf, z: %lf, type: %c\n", iftrain_data ? "treningowe" : "testowe", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
+        Wektor *dane = (Wektor *)ptr;
+        for (size_t i = 0; i < rozmiar; i++)
+            printf("Dane [%d]: x: %.1lf, y:  %.1lf, z: %.1lf, type: %c\n", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
+    }
+    else if (typ == DOUBLE)
+    {
+        double *dystans = (double *)ptr;
+        printf("Dystanse:\n");
+        for (size_t i = 0; i < rozmiar; i++)
+            printf("Odleglosc od elemntu[%d] to : %.3lf\n", i + 1, dystans[i]);
     }
 }
-
 // obliczanie odleglosci euklidesowej
-double *distance(const Wektor *train_data, const Wektor *test_data, uint32_t linie_test_data)
+double *distance(const Wektor *train_data, const Wektor *test_data, size_t rozmiar_test_data) //rozmiar test data napewno jest wiekszy od test data
 { // nie chcemy modyfikowac struktur dlatego const
-    double *distance = (double *)malloc(linie_test_data * sizeof(double));
+    double *distance = (double *)malloc(rozmiar_test_data * sizeof(double));
     if (distance == NULL)
     {
         printf("Blad alokacji pamieci!\n");
         exit(1);
     }
-    for (uint32_t i = 0; i < linie_test_data - 1; i++)
+    for (size_t i = 0; i < rozmiar_test_data; i++)
     {
         distance[i] = sqrt(pow((train_data[i].x - test_data[i].x), 2) + pow((train_data[i].y - test_data[i].y), 2) + pow((train_data[i].z - test_data[i].z), 2));
     }
@@ -107,11 +120,19 @@ int main(int argc, char *argv[])
 {
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
+
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
-    uint32_t linie[2] = {mem_train.rozmiar, mem_test.rozmiar};
-    printf("Dane treningowe mają %zu elementów.\n", linie[TRAIN_DATA]);
-    printf("Dane testowe mają %zu elementów.\n", linie[TEST_DATA]);
+    uint32_t rozmiar[2] = {mem_train.rozmiar, mem_test.rozmiar};
+    double *dystans = distance(train_data, test_data, rozmiar[TEST_DATA]);
+
+    printf("Dane treningowe mają %zu elementów.\n", rozmiar[TRAIN_DATA]);
+    printf("Dane testowe mają %zu elementów.\n", rozmiar[TEST_DATA]);
+    printf("Dane testowe:\n");
+    print_danych(train_data, WEKTOR, rozmiar[TRAIN_DATA]);
+    printf("Dane testowe:\n");
+    print_danych(test_data, WEKTOR, rozmiar[TEST_DATA]);
+    print_danych(dystans, DOUBLE, rozmiar[TEST_DATA]);
 
     free(train_data);
     free(test_data);
