@@ -27,62 +27,6 @@ typedef struct
     size_t capacity;
 } Memory;
 
-uint32_t licznik_linii(const char *filename)
-{
-    FILE *pf = fopen(filename, "r"); // read only mode
-    if (pf == NULL)
-    {
-        printf("Error opening file\n");
-        return 0;
-    }
-    uint32_t licznik = 0;
-    while (fgets(buffer, BUF_SIZE, pf) != NULL)
-    {
-        licznik++;
-    }
-    fclose(pf);
-    return licznik;
-}
-
-Wektor *memory_allocation(uint32_t linie)
-{
-    Wektor *dane = (Wektor *)malloc(linie * sizeof(Wektor));
-    if (dane == NULL)
-    {
-        printf("Blad alokacji pamieci!\n");
-        exit(1);
-    }
-    printf("Pamiec pomyslnie zaalokowana dla %u elementow\n", linie);
-    printf("Wskaznik na pamiec o adresie %p\n", dane);
-    return dane; // zwracamy wskaźnik do zaalokowanej pamieci
-}
-
-void wczytywanie_danych(const char *filename, Wektor *dane, uint32_t linie)
-{
-    FILE *pf = fopen(filename, "r");
-    if (pf == NULL)
-    {
-        printf("Error opening file\n");
-        exit(1);
-    }
-    if (fgets(buffer, BUF_SIZE, pf) == NULL) // ignorujemy nagłówek, bo nie zawiera zadnych danych
-    {
-        printf("Blad odczytu pierwszej linii z pliku %s\n", filename);
-        exit(1);
-    }
-
-    for (uint32_t i = 0; i < linie - 1; i++)
-    {
-        fgets(buffer, BUF_SIZE, pf);
-        if (sscanf(buffer, "%lf,%lf,%lf,%c", &dane[i].x, &dane[i].y, &dane[i].z, &dane[i].type) != 4)
-        {
-            printf("Wczytano mniej niz 4 zmienne w linii %u\n", i + 1);
-            exit(2);
-        }
-    }
-    fclose(pf);
-}
-
 Wektor *wczyt(const char *filename, Memory *mem)
 {
     mem->wektor = NULL;
@@ -127,8 +71,8 @@ Wektor *wczyt(const char *filename, Memory *mem)
     if (mem->rozmiar < mem->capacity)
     { // zmniejszamy pamiec ktora jest niewykorzystana tak aby idealnie pasowala do rozmiaru naszej tablicy
         Wektor *new_wektor = realloc(mem->wektor, mem->rozmiar * sizeof(Wektor));
-        if (new_wektor != NULL) //jesli realloc sie udal to niech wskazuje na nowa zaalokowana pamiec dobrana do rozmiaru tablicy
-        mem->wektor = new_wektor;  //jesli sie nie uda to po prostu bedzie nadwyzka pamieci w tablicy i mem->wektor bedzie na to wskazywal
+        if (new_wektor != NULL)       // jesli realloc sie udal to niech wskazuje na nowa zaalokowana pamiec dobrana do rozmiaru tablicy
+            mem->wektor = new_wektor; // jesli sie nie uda to po prostu bedzie nadwyzka pamieci w tablicy i mem->wektor bedzie na to wskazywal
     }
     fclose(pf);
     return mem->wektor;
@@ -161,39 +105,16 @@ double *distance(const Wektor *train_data, const Wektor *test_data, uint32_t lin
 
 int main(int argc, char *argv[])
 {
-
-    // uint32_t linie[2] = {licznik_linii(filename_train), licznik_linii(filename_test)};
-    // Wektor *train_data, *test_data;
-
-    // train_data = memory_allocation(linie[TRAIN_DATA]);
-    // test_data = memory_allocation(linie[TEST_DATA]);
-
-    // printf("Liczba linii w pliku treningowym: %u\n", linie[TRAIN_DATA]);
-    // printf("Liczba linii w pliku testowym: %u\n", linie[TEST_DATA]);
-
-    // wczytywanie_danych(filename_train, train_data, linie[TRAIN_DATA]);
-    // wczytywanie_danych(filename_test, test_data, linie[TEST_DATA]);
-
-    // print_danych(train_data, linie[0], true);
-    // print_danych(test_data, linie[1], false);
-
-    // double *dystans = distance(train_data, test_data, linie[TEST_DATA]);
-    // printf("Odlegość euklidesowa dla wektorów TEST_DATA\n");
-    // for (uint32_t i = 0; i < linie[TEST_DATA] - 1; i++)
-    // {
-    //     printf("Odleglość dla elementu [%u] to: %lf\n", i + 1, dystans[i]);
-    // }
-
-    // free(train_data);
-    // free(test_data);
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
-    printf("Dane treningowe mają %zu elementów.\n", mem_train.rozmiar);
-    printf("Dane testowe mają %zu elementów.\n", mem_test.rozmiar);
+    uint32_t linie[2] = {mem_train.rozmiar, mem_test.rozmiar};
+    printf("Dane treningowe mają %zu elementów.\n", linie[TRAIN_DATA]);
+    printf("Dane testowe mają %zu elementów.\n", linie[TEST_DATA]);
+
     free(train_data);
     free(test_data);
-    
+
     return 0;
 }
