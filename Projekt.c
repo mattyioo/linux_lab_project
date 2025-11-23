@@ -47,8 +47,8 @@ typedef struct
     size_t size_train;
     unsigned long hits;
     unsigned long misses;
-    size_t processed;
-    size_t total;
+    double processed;
+    double total;
     pthread_mutex_t mutex;
     bool is_finished;
 } DaneWatku;
@@ -166,7 +166,7 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     pthread_mutex_unlock(&dane_watku->mutex);
 }
 
-//watek do przeprowadznia obliczen
+// watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
     DaneWatku *dane_thread = (DaneWatku *)arg;
@@ -176,48 +176,35 @@ void *calc_thread(void *arg)
     pthread_exit(NULL);
 }
 
-//watek obslugujacy wyswietlanie rezultatow
+// watek obslugujacy wyswietlanie rezultatow
 void *pause_thread(void *arg)
 {
     DaneWatku *dane = (DaneWatku *)arg;
+
     while (1)
     {
-        char c = getchar();
+        int c = getchar();
         if (tolower(c) == 'p')
         {
             pthread_mutex_lock(&dane->mutex);
-            unsigned h = dane->hits;
-            unsigned m = dane->misses;
-            size_t state = dane->processed;
-            size_t total = dane->total;
+            unsigned long h = dane->hits;
+            unsigned long m = dane->misses;
+            double state = dane->processed;
+            double total = dane->total;
             bool finished = dane->is_finished;
             pthread_mutex_unlock(&dane->mutex);
-
-            double percent = (double)state / total;
+            double percent = state / total;
             double ratio = (double)h / (h + m);
             printf("\n--- STATUS OBLICZEN ---\n");
-            printf("Postep:      %zu / %zu  [%.1f%%]\n", state, total, percent);
-            printf("Trafienia:   %ld\n", h);
-            printf("Pudla:       %ld\n", m);
+            printf("Postep:      %lf / %lf [%.1f%%]\n", state, total, percent);
+            printf("Trafienia:   %lu\n", h);
+            printf("Pudla:       %lu\n", m);
             printf("Dokladnosc:  %.2f%%\n", ratio);
             printf("-----------------------\n");
-            if (finished)
-            {
-                printf("Obliczanie skonczone, ostateczne dane:\n");
-                printf("\n--- STATUS OBLICZEN ---\n");
-                printf("Postep:      %zu / %zu  [%.1f%%]\n", state, total, percent);
-                printf("Trafienia:   %ld\n", h);
-                printf("Pudla:       %ld\n", m);
-                printf("Dokladnosc:  %.2f%%\n", ratio);
-                printf("-----------------------\n");
-                printf("[Pause thread]Koncze dzialanie!\n");
-                break;
-            }
         }
         else
             printf("Nacisnij klawisz \"P\"");
     }
-
     pthread_exit(NULL);
 }
 
@@ -227,13 +214,14 @@ int main(int argc, char *argv[])
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
     pthread_t work_thread, p_thread;
+    char wybor_uzytkownika;
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
     size_t rozmiar[2] = {mem_train.rozmiar, mem_test.rozmiar};
     dane_watku.size_test = rozmiar[TEST_DATA];
     dane_watku.size_train = rozmiar[TRAIN_DATA];
-    dane_watku.total = rozmiar[TEST_DATA];
+    dane_watku.total = (double)rozmiar[TEST_DATA];
     dane_watku.wektor_test = train_data;
     dane_watku.wektor_train = train_data;
     pthread_mutex_init(&dane_watku.mutex, NULL);
@@ -245,16 +233,20 @@ int main(int argc, char *argv[])
     printf("[K]Rozpocznij klasyfikacje\n");
     printf("[P]Wyswielt rezultaty\n");
     printf("[Z]Zakoncz analize\n");
+    scanf("%c", &wybor_uzytkownika);
+    if (tolower(wybor_uzytkownika) == 'k')
+    {
+        if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
+        {
+            printf("Error creating thread\n");
+            return 1;
+        }
 
-    if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
-    {
-        printf("Error creating thread\n");
-        return 1;
-    }
-    if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
-    {
-        printf("Error creating thread\n");
-        return 1;
+        if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
+        {
+            printf("Error creating thread\n");
+            return 1;
+        }
     }
     pthread_join(work_thread, NULL);
     pthread_join(p_thread, NULL);
