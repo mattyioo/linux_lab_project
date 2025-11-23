@@ -139,6 +139,7 @@ double ratio_distance(const Wektor *train_data, const Wektor *test_data, size_t 
         else
             misses++;
     }
+    free(distance);
     double hits_to_misses_ratio = (double)hits / (hits + misses);
     return hits_to_misses_ratio; // zwracamy procent trafien w naszym zbiorze
 }
