@@ -166,15 +166,17 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     pthread_mutex_unlock(&dane_watku->mutex);
 }
 
+//watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
     DaneWatku *dane_thread = (DaneWatku *)arg;
 
-    ratio_distance(dane_thread->wektor_train, dane_thread->wektor_train, dane_thread, dane_thread->size_test, dane_thread->size_train);
+    ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
     printf("[Work thread] Obliczenia skonczone, koncze dzialanie\n");
     pthread_exit(NULL);
 }
 
+//watek obslugujacy wyswietlanie rezultatow
 void *pause_thread(void *arg)
 {
     DaneWatku *dane = (DaneWatku *)arg;
@@ -192,7 +194,7 @@ void *pause_thread(void *arg)
             pthread_mutex_unlock(&dane->mutex);
 
             double percent = (double)state / total;
-            double ratio = h / (double)h + m;
+            double ratio = (double)h / (h + m);
             printf("\n--- STATUS OBLICZEN ---\n");
             printf("Postep:      %zu / %zu  [%.1f%%]\n", state, total, percent);
             printf("Trafienia:   %ld\n", h);
@@ -225,9 +227,6 @@ int main(int argc, char *argv[])
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
     pthread_t work_thread, p_thread;
-    int rc;
-    double *ratio_form_thread;
-    char wybor_uzytkownika;
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
@@ -237,7 +236,7 @@ int main(int argc, char *argv[])
     dane_watku.total = rozmiar[TEST_DATA];
     dane_watku.wektor_test = train_data;
     dane_watku.wektor_train = train_data;
-    pthread_mutex_init(dane_watku.mutex, NULL);
+    pthread_mutex_init(&dane_watku.mutex, NULL);
 
     printf("***********************************\n");
     printf("Witaj w progamie klasfyfikatora\n");
@@ -247,17 +246,19 @@ int main(int argc, char *argv[])
     printf("[P]Wyswielt rezultaty\n");
     printf("[Z]Zakoncz analize\n");
 
-    if (pthread_create(work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
-        ;
-    printf("Error creating thread\n");
-    return 1;
-    if (pthread_create(p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
-        ;
-    printf("Error creating thread\n");
-    return 1;
-
+    if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
+    {
+        printf("Error creating thread\n");
+        return 1;
+    }
+    if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
+    {
+        printf("Error creating thread\n");
+        return 1;
+    }
     pthread_join(work_thread, NULL);
     pthread_join(p_thread, NULL);
+    pthread_mutex_destroy(&dane_watku.mutex);
     // printf("Dane treningowe mają %zu elementów.\n", rozmiar[TRAIN_DATA]);
     // printf("Dane testowe mają %zu elementów.\n", rozmiar[TEST_DATA]);
     // printf("TRAIN: %p\nTEST: %p\nCapacity:%zu test: %zu", mem_train.wektor, mem_test.wektor, mem_train.capacity, mem_test.capacity);
@@ -267,11 +268,8 @@ int main(int argc, char *argv[])
     // print_danych(test_data, WEKTOR_TEST, rozmiar[TEST_DATA]);
 
     // printf("Hits to misses ratio: %.3lf", ratio_distance(train_data, test_data, rozmiar[TEST_DATA]));
-
-    free(ratio_form_thread);
     free(train_data);
     free(test_data);
-    
     printf("[main]Koncze dzialanie\n");
     return 0;
 }
