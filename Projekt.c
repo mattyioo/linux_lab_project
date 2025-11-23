@@ -98,15 +98,15 @@ void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylk
 }
 
 
-// funkcja porównująca do qsort
+// funkcja porównująca do qsort (sortowanie rosnące)
 int compar(const void *a, const void *b)
 {
-    const double *d1 = (double *)a;
-    const double *d2 = (double *)b;
+    const Dystans *d1 = (Dystans *)a;
+    const Dystans *d2 = (Dystans *)b;
 
-    if (*d1 > *d2)
+    if (d1->odleglosc > d2->odleglosc)
         return 1;
-    if (*d1 < *d2)
+    if (d1->odleglosc < d2->odleglosc)
         return -1;
 
     return 0;
