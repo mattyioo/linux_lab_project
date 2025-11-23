@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
+#include <pthread.h>
+#include <ctype.h> //tolower funcition
 
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
@@ -36,6 +38,20 @@ typedef struct
     double odleglosc;
     char type;
 } Dystans;
+
+typedef struct
+{
+    const Wektor *wektor_train;
+    const Wektor *wektor_test;
+    size_t size_test;
+    size_t size_train;
+    unsigned long hits;
+    unsigned long misses;
+    size_t processed;
+    size_t total;
+    pthread_mutex_t mutex;
+    bool is_finished;
+} DaneWatku;
 
 Wektor *wczyt(const char *filename, Memory *mem)
 {
@@ -97,7 +113,6 @@ void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylk
         printf("Dane [%zu]: x: %.1lf, y:  %.1lf, z: %.1lf, type: %c\n", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
 }
 
-
 // funkcja porównująca do qsort (sortowanie rosnące)
 int compar(const void *a, const void *b)
 {
@@ -112,10 +127,13 @@ int compar(const void *a, const void *b)
     return 0;
 }
 // obliczanie odleglosci euklidesowej + obliczanie procentu trafien w zbiorze
-double ratio_distance(const Wektor *train_data, const Wektor *test_data, size_t rozmiar_test_data) // rozmiar test data napewno jest wiekszy od test data
-{                                                                                                  // nie chcemy modyfikowac struktur dlatego const
-    int hits = 0, misses = 0;
-    Dystans *distance = malloc(rozmiar_test_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
+void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku *dane_watku, size_t rozmiar_test_data, size_t rozmiar_train_data) // rozmiar test data napewno jest wiekszy od test data
+{                                                                                                                                                  // nie chcemy modyfikowac struktur dlatego const
+    dane_watku->hits = 0;
+    dane_watku->misses = 0;
+    dane_watku->is_finished = false;
+    dane_watku->processed = 0;
+    Dystans *distance = (Dystans *)malloc(rozmiar_test_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
     if (distance == NULL)
     {
         printf("Blad alokacji pamieci!\n");
@@ -123,7 +141,7 @@ double ratio_distance(const Wektor *train_data, const Wektor *test_data, size_t 
     }
     for (size_t i = 0; i < rozmiar_test_data; i++)
     {
-        for (size_t j = 0; j < rozmiar_test_data; j++)
+        for (size_t j = 0; j < rozmiar_train_data; j++)
         {
             double dx = train_data[j].x - test_data[i].x;
             double dy = train_data[j].y - test_data[i].y;
@@ -134,40 +152,126 @@ double ratio_distance(const Wektor *train_data, const Wektor *test_data, size_t 
         }
         qsort(distance, rozmiar_test_data, sizeof(Dystans), compar); // sortowanie rosnące
         // najblizszy sasiad w takim razie to bedzie tablica z indeksem 0
+        pthread_mutex_lock(&dane_watku->mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
         if (distance[0].type == test_data[i].type)
-            hits++;
+            dane_watku->hits++;
         else
-            misses++;
+            dane_watku->misses++;
+        dane_watku->processed++;
+        pthread_mutex_unlock(&dane_watku->mutex);
     }
     free(distance);
-    double hits_to_misses_ratio = (double)hits / (hits + misses);
-    return hits_to_misses_ratio; // zwracamy procent trafien w naszym zbiorze
+    pthread_mutex_lock(&dane_watku->mutex);
+    dane_watku->is_finished = true; // zmiana stanu obliczen na finished
+    pthread_mutex_unlock(&dane_watku->mutex);
 }
 
+void *calc_thread(void *arg)
+{
+    DaneWatku *dane_thread = (DaneWatku *)arg;
 
+    ratio_distance(dane_thread->wektor_train, dane_thread->wektor_train, dane_thread, dane_thread->size_test, dane_thread->size_train);
+    printf("[Work thread] Obliczenia skonczone, koncze dzialanie\n");
+    pthread_exit(NULL);
+}
+
+void *pause_thread(void *arg)
+{
+    DaneWatku *dane = (DaneWatku *)arg;
+    while (1)
+    {
+        char c = getchar();
+        if (tolower(c) == 'p')
+        {
+            pthread_mutex_lock(&dane->mutex);
+            unsigned h = dane->hits;
+            unsigned m = dane->misses;
+            size_t state = dane->processed;
+            size_t total = dane->total;
+            bool finished = dane->is_finished;
+            pthread_mutex_unlock(&dane->mutex);
+
+            double percent = (double)state / total;
+            double ratio = h / (double)h + m;
+            printf("\n--- STATUS OBLICZEN ---\n");
+            printf("Postep:      %zu / %zu  [%.1f%%]\n", state, total, percent);
+            printf("Trafienia:   %ld\n", h);
+            printf("Pudla:       %ld\n", m);
+            printf("Dokladnosc:  %.2f%%\n", ratio);
+            printf("-----------------------\n");
+            if (finished)
+            {
+                printf("Obliczanie skonczone, ostateczne dane:\n");
+                printf("\n--- STATUS OBLICZEN ---\n");
+                printf("Postep:      %zu / %zu  [%.1f%%]\n", state, total, percent);
+                printf("Trafienia:   %ld\n", h);
+                printf("Pudla:       %ld\n", m);
+                printf("Dokladnosc:  %.2f%%\n", ratio);
+                printf("-----------------------\n");
+                printf("[Pause thread]Koncze dzialanie!\n");
+                break;
+            }
+        }
+        else
+            printf("Nacisnij klawisz \"P\"");
+    }
+
+    pthread_exit(NULL);
+}
 
 int main(int argc, char *argv[])
 {
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
+    DaneWatku dane_watku;
+    pthread_t work_thread, p_thread;
+    int rc;
+    double *ratio_form_thread;
+    char wybor_uzytkownika;
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
     size_t rozmiar[2] = {mem_train.rozmiar, mem_test.rozmiar};
+    dane_watku.size_test = rozmiar[TEST_DATA];
+    dane_watku.size_train = rozmiar[TRAIN_DATA];
+    dane_watku.total = rozmiar[TEST_DATA];
+    dane_watku.wektor_test = train_data;
+    dane_watku.wektor_train = train_data;
+    pthread_mutex_init(dane_watku.mutex, NULL);
 
+    printf("***********************************\n");
+    printf("Witaj w progamie klasfyfikatora\n");
+    printf("***********************************\n");
+    printf("Opcje:\n");
+    printf("[K]Rozpocznij klasyfikacje\n");
+    printf("[P]Wyswielt rezultaty\n");
+    printf("[Z]Zakoncz analize\n");
 
-    printf("Dane treningowe mają %zu elementów.\n", rozmiar[TRAIN_DATA]);
-    printf("Dane testowe mają %zu elementów.\n", rozmiar[TEST_DATA]);
-    printf("TRAIN: %p\nTEST: %p\nCapacity:%zu test: %zu", mem_train.wektor, mem_test.wektor, mem_train.capacity, mem_test.capacity);
-    printf("Dane treningowe:\n");
-    print_danych(train_data, WEKTOR_TRAIN, rozmiar[TRAIN_DATA]);
-    printf("Dane testowe:\n");
-    print_danych(test_data, WEKTOR_TEST, rozmiar[TEST_DATA]);
+    if (pthread_create(work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
+        ;
+    printf("Error creating thread\n");
+    return 1;
+    if (pthread_create(p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
+        ;
+    printf("Error creating thread\n");
+    return 1;
 
-    printf("Hits to misses ratio: %.3lf", ratio_distance(train_data, test_data, rozmiar[TEST_DATA]));
+    pthread_join(work_thread, NULL);
+    pthread_join(p_thread, NULL);
+    // printf("Dane treningowe mają %zu elementów.\n", rozmiar[TRAIN_DATA]);
+    // printf("Dane testowe mają %zu elementów.\n", rozmiar[TEST_DATA]);
+    // printf("TRAIN: %p\nTEST: %p\nCapacity:%zu test: %zu", mem_train.wektor, mem_test.wektor, mem_train.capacity, mem_test.capacity);
+    // printf("Dane treningowe:\n");
+    // print_danych(train_data, WEKTOR_TRAIN, rozmiar[TRAIN_DATA]);
+    // printf("Dane testowe:\n");
+    // print_danych(test_data, WEKTOR_TEST, rozmiar[TEST_DATA]);
 
+    // printf("Hits to misses ratio: %.3lf", ratio_distance(train_data, test_data, rozmiar[TEST_DATA]));
+
+    free(ratio_form_thread);
     free(train_data);
     free(test_data);
-
+    
+    printf("[main]Koncze dzialanie\n");
     return 0;
 }
