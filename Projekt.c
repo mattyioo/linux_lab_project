@@ -47,8 +47,8 @@ typedef struct
     size_t size_train;
     unsigned long hits;
     unsigned long misses;
-    double processed;
-    double total;
+    size_t processed;
+    size_t total;
     pthread_mutex_t mutex;
     bool is_finished;
 } DaneWatku;
@@ -164,15 +164,24 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     pthread_mutex_lock(&dane_watku->mutex);
     dane_watku->is_finished = true; // zmiana stanu obliczen na finished
     pthread_mutex_unlock(&dane_watku->mutex);
+    if (dane_watku->is_finished)
+    {
+        printf("\nOBLICZNIA ZAKONCZONE");
+        printf("\n--- OSTATECZNE DANE ---\n");
+        printf("Postep:      %zu / %zu [%.1f%%]\n", dane_watku->processed, dane_watku->total, 100 * ((double)dane_watku->processed / dane_watku->total));
+        printf("Trafienia:   %lu\n", dane_watku->hits);
+        printf("Pudla:       %lu\n", dane_watku->misses);
+        printf("Dokladnosc:  %.3f\n", (double)dane_watku->hits / (dane_watku->hits + dane_watku->misses));
+        printf("-----------------------\n");
+    }
 }
 
 // watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
     DaneWatku *dane_thread = (DaneWatku *)arg;
-
     ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
-    printf("[Work thread] Obliczenia skonczone, koncze dzialanie\n");
+    printf("[Work thread] Koncze dzialanie\n");
     pthread_exit(NULL);
 }
 
@@ -183,28 +192,33 @@ void *pause_thread(void *arg)
 
     while (1)
     {
+        pthread_mutex_lock(&dane->mutex);
+        bool finished = dane->is_finished;
+        pthread_mutex_unlock(&dane->mutex);
+        if (finished)
+            break;
         int c = getchar();
+        if (c == '\n' || c == ' ')
+            continue;
         if (tolower(c) == 'p')
         {
             pthread_mutex_lock(&dane->mutex);
             unsigned long h = dane->hits;
             unsigned long m = dane->misses;
-            double state = dane->processed;
-            double total = dane->total;
-            bool finished = dane->is_finished;
+            size_t state = dane->processed;
+            size_t total = dane->total;
             pthread_mutex_unlock(&dane->mutex);
-            double percent = state / total;
+            double percent = ((double)state / total) * 100;
             double ratio = (double)h / (h + m);
             printf("\n--- STATUS OBLICZEN ---\n");
-            printf("Postep:      %lf / %lf [%.1f%%]\n", state, total, percent);
+            printf("Postep:      %zu / %.zu [%.3lf]\n", state, total, percent);
             printf("Trafienia:   %lu\n", h);
             printf("Pudla:       %lu\n", m);
-            printf("Dokladnosc:  %.2f%%\n", ratio);
+            printf("Dokladnosc:  %.3f\n", ratio);
             printf("-----------------------\n");
         }
-        else
-            printf("Nacisnij klawisz \"P\"");
     }
+    printf("[Pause thread] Koncze dzialanie\n");
     pthread_exit(NULL);
 }
 
@@ -222,20 +236,20 @@ int main(int argc, char *argv[])
     dane_watku.size_test = rozmiar[TEST_DATA];
     dane_watku.size_train = rozmiar[TRAIN_DATA];
     dane_watku.total = (double)rozmiar[TEST_DATA];
-    dane_watku.wektor_test = train_data;
+    dane_watku.wektor_test = test_data;
     dane_watku.wektor_train = train_data;
     pthread_mutex_init(&dane_watku.mutex, NULL);
 
     printf("***********************************\n");
     printf("Witaj w progamie klasfyfikatora\n");
     printf("***********************************\n");
-    printf("Opcje:\n");
-    printf("[K]Rozpocznij klasyfikacje\n");
-    printf("[P]Wyswielt rezultaty\n");
-    printf("[Z]Zakoncz analize\n");
+    printf("[K]Rozpocznij klasyfikacje: ");
     scanf("%c", &wybor_uzytkownika);
     if (tolower(wybor_uzytkownika) == 'k')
     {
+        printf("***Dodatkowe opcje***\n");
+        printf("[P]Wyswielt rezultaty\n");
+        printf("[Z]Zakoncz analize\n");
         if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
         {
             printf("Error creating thread\n");
