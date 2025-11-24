@@ -287,9 +287,5 @@ int main(int argc, char *argv[])
     free(train_data);
     free(test_data);
     printf("[main]Koncze dzialanie\n");
-    printf("[main]Koncze dzialanie\n");
-    printf("[main]Koncze dzialanie\n");
-    printf("[main]Koncze dzialanie\n");
-    printf("[main]Koncze dzialanie\n");
     return 0;
 }
