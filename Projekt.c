@@ -230,6 +230,7 @@ void *pause_thread(void *arg)
         }
     }
     }
+    printf("[Pause thread] Koncze dzialanie\n");
     pthread_exit(NULL);
     return NULL; //zeby nie bylo warninga
 }
@@ -258,7 +259,7 @@ int main(int argc, char *argv[])
     printf("***********************************\n");
     printf("[K]Rozpocznij klasyfikacje: ");
     scanf("%c", &wybor_uzytkownika);
-    if (tolower(wybor_uzytkownika) == 'k')
+    if (wybor_uzytkownika == 'k' || wybor_uzytkownika == 'K')
     {
         printf("***Dodatkowe opcje***\n");
         printf("[P]Wyswielt rezultaty\n");
