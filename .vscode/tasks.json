@@ -10,8 +10,8 @@
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "-lm",
-                "-pthread",
+                "-lm", //zeby linkowalo biblioteke math
+                "-pthread", //zeby linkowalo biblioteke pthread
                 "-Wall"
             ],
             "options": {

@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
-#include <poll.h>
+#include <poll.h>   //funkcja poll
 #include <pthread.h>
-#include <unistd.h>
+#include <unistd.h> //STDIN_FILENO
 
 
 #define BUF_SIZE 256
@@ -135,7 +135,7 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     dane_watku->misses = 0;
     dane_watku->is_finished = false;
     dane_watku->processed = 0;
-    Dystans *distance = (Dystans *)malloc(rozmiar_test_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
+    Dystans *distance = (Dystans *)malloc(rozmiar_train_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
     if (distance == NULL)
     {
         printf("Blad alokacji pamieci!\n");
