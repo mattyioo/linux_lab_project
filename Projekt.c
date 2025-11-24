@@ -6,6 +6,7 @@
 #include <math.h>
 #include <poll.h>
 #include <pthread.h>
+#include <unistd.h>
 
 
 #define BUF_SIZE 256
