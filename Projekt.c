@@ -19,8 +19,8 @@
 
 char buffer[BUF_SIZE];
 
-const char *filename_train = "train_100linijek.txt";
-const char *filename_test = "test100_linijek.txt";
+const char *filename_train = "train.csv";
+const char *filename_test = "test.csv";
 
 typedef struct
 {
