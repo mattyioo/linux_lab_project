@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
     DaneWatku dane_watku;
     pthread_t work_thread, p_thread;
     char wybor_uzytkownika;
-    void *status;
+
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
