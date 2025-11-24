@@ -4,10 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
-#include <poll.h>   //funkcja poll
+#include <poll.h> //funkcja poll
 #include <pthread.h>
 #include <unistd.h> //STDIN_FILENO
-
 
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
@@ -184,16 +183,16 @@ void *calc_thread(void *arg)
     ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
     printf("[Work thread] Koncze dzialanie\n");
     pthread_exit(NULL);
-    return NULL; //zeby nie bylo warninga
+    return NULL; // zeby nie bylo warninga
 }
 
 // watek obslugujacy wyswietlanie rezultatow
 void *pause_thread(void *arg)
 {
     DaneWatku *dane = (DaneWatku *)arg;
-   struct pollfd pfd = {
-        .fd = STDIN_FILENO, //monitorujemy STDIN, deskryptorem tego jest STDIN_FILENO
-        .events = POLLIN //POLLIN = dane do odczytu, monitorujemy czy sa dane do odczytu
+    struct pollfd pfd = {
+        .fd = STDIN_FILENO, // monitorujemy STDIN, deskryptorem tego jest STDIN_FILENO
+        .events = POLLIN    // POLLIN = dane do odczytu, monitorujemy czy sa dane do odczytu
     };
 
     while (1)
@@ -201,38 +200,39 @@ void *pause_thread(void *arg)
         pthread_mutex_lock(&dane->mutex);
         bool finished = dane->is_finished;
         pthread_mutex_unlock(&dane->mutex);
-        
+
         if (finished)
             break;
-        //ret zwraca ile deskryptorow mialo pole revents ustalone na niezerowe (co oznacza ze nastapil error lub zdarzenie np. POLLIN), jesli zero to znaczy ze nic sie nie stalo, -1 oznacza error
-        //drugi argument to 1 bo poll ma nasluchiwac tylko jednego gniazda (STDIN)
-        int ret = poll(&pfd, 1, 100); //funkjca nieblokujaca czeka na dane przez 100ms jesli nie ma to petla wykonuje sie od nowa
-        if(ret == 1 && (pfd.revents & POLLIN)){ //revents zawiera flagi, jesli jest flaga POLLIN to znaczy ze jest cos do odczytania
+        // ret zwraca ile deskryptorow mialo pole revents ustalone na niezerowe (co oznacza ze nastapil error lub zdarzenie np. POLLIN), jesli zero to znaczy ze nic sie nie stalo, -1 oznacza error
+        // drugi argument to 1 bo poll ma nasluchiwac tylko jednego gniazda (STDIN)
+        int ret = poll(&pfd, 1, 100); // funkjca nieblokujaca czeka na dane przez 100ms jesli nie ma to petla wykonuje sie od nowa
+        if (ret == 1 && (pfd.revents & POLLIN))
+        { // revents zawiera flagi, jesli jest flaga POLLIN to znaczy ze jest cos do odczytania
             int c = getchar();
-            if(c == '\n')
+            if (c == '\n')
                 continue;
             if (c == 'p' || c == 'P')
-        {
-            pthread_mutex_lock(&dane->mutex);
-            unsigned long h = dane->hits;
-            unsigned long m = dane->misses;
-            size_t state = dane->processed;
-            size_t total = dane->total;
-            pthread_mutex_unlock(&dane->mutex);
-            double percent = ((double)state / total) * 100;
-            double ratio = (double)h / (h + m);
-            printf("\n--- STATUS OBLICZEN ---\n");
-            printf("Postep:      %zu / %zu [%.3lf]\n", state, total, percent);
-            printf("Trafienia:   %lu\n", h);
-            printf("Pudla:       %lu\n", m);
-            printf("Dokladnosc:  %.3f\n", ratio);
-            printf("-----------------------\n");
+            {
+                pthread_mutex_lock(&dane->mutex);
+                unsigned long h = dane->hits;
+                unsigned long m = dane->misses;
+                size_t state = dane->processed;
+                size_t total = dane->total;
+                pthread_mutex_unlock(&dane->mutex);
+                double percent = ((double)state / total) * 100;
+                double ratio = (double)h / (h + m);
+                printf("\n--- STATUS OBLICZEN ---\n");
+                printf("Postep:      %zu / %zu [%.3lf]\n", state, total, percent);
+                printf("Trafienia:   %lu\n", h);
+                printf("Pudla:       %lu\n", m);
+                printf("Dokladnosc:  %.3f\n", ratio);
+                printf("-----------------------\n");
+            }
         }
-    }
     }
     printf("[Pause thread] Koncze dzialanie\n");
     pthread_exit(NULL);
-    return NULL; //zeby nie bylo warninga
+    return NULL; // zeby nie bylo warninga
 }
 
 int main(int argc, char *argv[])
@@ -277,12 +277,7 @@ int main(int argc, char *argv[])
         }
     }
     pthread_join(work_thread, NULL);
-    pthread_join(p_thread, (void **)&status);
-    if (status == PTHREAD_CANCELED)
-        printf("[main] Pause thread was cancelled\n");
-
-    else
-        printf("[main] Pause thread finished work naturally\n");
+    pthread_join(p_thread, NULL);
 
     pthread_mutex_destroy(&dane_watku.mutex);
 
