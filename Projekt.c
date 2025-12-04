@@ -179,6 +179,11 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
 // watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
+      if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
+    {
+        printf("[Pause thread] Cancel state failed!\n");
+        return 1;
+    }
     DaneWatku *dane_thread = (DaneWatku *)arg;
     ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
     printf("[Work thread] Koncze dzialanie\n");
@@ -189,6 +194,11 @@ void *calc_thread(void *arg)
 // watek obslugujacy wyswietlanie rezultatow
 void *pause_thread(void *arg)
 {
+    if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
+    {
+        printf("[Pause thread] Cancel state failed!\n");
+        return 1;
+    }
     DaneWatku *dane = (DaneWatku *)arg;
     struct pollfd pfd = {
         .fd = STDIN_FILENO, // monitorujemy STDIN, deskryptorem tego jest STDIN_FILENO
@@ -240,9 +250,13 @@ int main(int argc, char *argv[])
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
-    pthread_t work_thread, p_thread;
+    pthread_t work_thread, p_thread, end_thread;
     char wybor_uzytkownika;
 
+    struct pollfd pfd = {
+        .fd = STDIN_FILENO;
+        .events = POLLIN;
+    };
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
@@ -274,6 +288,15 @@ int main(int argc, char *argv[])
         {
             printf("Error creating thread\n");
             return 1;
+        }
+        int ret = poll(&pfd, 1, 100);
+        if(ret > 0 && (pfd.revents & POLLIN)){
+            int c = getchar();
+            if(c == 'Z' || c == 'z')
+                pthread_cancel(calc_thread);
+                pthread_cancel(pause_thread);
+                pthread_join(work_thread, NULL);
+                pthread_join(p_thread, NULL);
         }
     }
     pthread_join(work_thread, NULL);
