@@ -6,7 +6,7 @@
 #include <math.h>
 #include <poll.h> //funkcja poll
 #include <pthread.h>
-#include <unistd.h> //STDIN_FILENO
+#include <unistd.h>    //STDIN_FILENO
 #include <stdatomic.h> //dla operacji atomicznych
 
 #define BUF_SIZE 256
@@ -52,8 +52,10 @@ typedef struct
     size_t processed;
     size_t total;
     pthread_mutex_t mutex;
-    bool is_finished;
-    bool stop_request;
+    bool is_finished;  // sprawdzamy czy watek sie zakonczyl
+    bool stop_request; // sprawdzamy czy wcisnieto przycisk Z
+    bool is_paused;    // sprawdzamy czy watek jest wstrzymany
+    pthread_cond_t cond;
 } DaneWatku;
 
 Wektor *wczyt(const char *filename, Memory *mem)
@@ -144,13 +146,19 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     }
     for (size_t i = 0; i < rozmiar_test_data; i++)
     {
-        // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
-            // break; //wyjdz z petli i zakoncz dzialanie watku
         pthread_mutex_lock(&dane_watku->mutex);
-            if(dane_watku->stop_request){
-                pthread_mutex_unlock(&dane_watku->mutex);
-                break;
-            }
+        while(dane_watku->is_paused) //jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
+            pthread_cond_wait(&dane_watku->cond, &dane_watku->mutex); //uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
+        pthread_mutex_unlock(&dane_watku->mutex);
+        
+        // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
+        // break; //wyjdz z petli i zakoncz dzialanie watku
+        pthread_mutex_lock(&dane_watku->mutex);
+        if (dane_watku->stop_request)
+        {
+            pthread_mutex_unlock(&dane_watku->mutex);
+            break;
+        }
         pthread_mutex_unlock(&dane_watku->mutex);
         for (size_t j = 0; j < rozmiar_train_data; j++)
         {
@@ -237,7 +245,8 @@ void *pause_thread(void *arg)
                 printf("Dokladnosc:  %.3f\n", ratio);
                 printf("-----------------------\n");
             }
-            else if (c == 'z' || c == 'Z'){
+            else if (c == 'z' || c == 'Z')
+            {
                 printf("[Pause thread] Wcisnieto klawisz 'Z'\n");
                 pthread_mutex_lock(&dane->mutex);
                 dane->stop_request = true;
@@ -245,7 +254,19 @@ void *pause_thread(void *arg)
                 // atomic_store(&dane->stop_request, true); //zapisz taka wartosc do pamieci
                 break;
             }
-        
+            else if (c == 'w' || c == 'W')
+            {
+                pthread_mutex_lock(&dane->mutex);
+                dane->is_paused = !dane->is_paused;
+                if (!dane->is_paused) //sprawdzamy czy watek nie jest wstrzymany
+                {
+                    pthread_cond_signal(&dane->cond); // wybudzenie watku drugiego jesli watek nie jest wstrzymany
+                    printf("Obliczenia wznowione.\n");
+                }
+                else
+                    printf("Obliczenia wstrzymane.\n");
+                pthread_mutex_unlock(&dane->mutex);
+            }
         }
     }
     printf("[Pause thread] Koncze dzialanie.\n");
@@ -260,7 +281,6 @@ int main(int argc, char *argv[])
     pthread_t work_thread, p_thread;
     char wybor_uzytkownika;
 
-
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
     size_t rozmiar[2] = {mem_train.rozmiar, mem_test.rozmiar};
@@ -271,7 +291,9 @@ int main(int argc, char *argv[])
     dane_watku.wektor_train = train_data;
     // atomic_init(&dane_watku.stop_request, false);
     dane_watku.stop_request = false;
+    dane_watku.is_paused = false;
     pthread_mutex_init(&dane_watku.mutex, NULL);
+    pthread_cond_init(&dane_watku.cond, NULL);
 
     printf("***********************************\n");
     printf("Witaj w progamie klasfyfikatora\n");
@@ -294,13 +316,12 @@ int main(int argc, char *argv[])
             printf("Error creating thread\n");
             return 1;
         }
-       
-        
     }
     pthread_join(work_thread, NULL);
     pthread_join(p_thread, NULL);
 
     pthread_mutex_destroy(&dane_watku.mutex);
+    pthread_cond_destroy(&dane_watku.cond);
 
     free(train_data);
     free(test_data);
