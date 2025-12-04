@@ -182,8 +182,9 @@ void *calc_thread(void *arg)
       if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
     {
         printf("[Pause thread] Cancel state failed!\n");
-        return 1;
+        pthread_exit(NULL);
     }
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     DaneWatku *dane_thread = (DaneWatku *)arg;
     ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
     printf("[Work thread] Koncze dzialanie\n");
@@ -197,8 +198,9 @@ void *pause_thread(void *arg)
     if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
     {
         printf("[Pause thread] Cancel state failed!\n");
-        return 1;
+        pthread_exit(NULL);
     }
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     DaneWatku *dane = (DaneWatku *)arg;
     struct pollfd pfd = {
         .fd = STDIN_FILENO, // monitorujemy STDIN, deskryptorem tego jest STDIN_FILENO
@@ -250,13 +252,15 @@ int main(int argc, char *argv[])
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
-    pthread_t work_thread, p_thread, end_thread;
+    pthread_t work_thread, p_thread;
     char wybor_uzytkownika;
 
     struct pollfd pfd = {
-        .fd = STDIN_FILENO;
-        .events = POLLIN;
+        .fd = STDIN_FILENO,
+        .events = POLLIN
     };
+
+    void *thread_result[2]; //zmienna sluzaca do zwracania informacji o tym jak zakonczyl sie dany watek
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
@@ -292,11 +296,16 @@ int main(int argc, char *argv[])
         int ret = poll(&pfd, 1, 100);
         if(ret > 0 && (pfd.revents & POLLIN)){
             int c = getchar();
-            if(c == 'Z' || c == 'z')
-                pthread_cancel(calc_thread);
-                pthread_cancel(pause_thread);
-                pthread_join(work_thread, NULL);
-                pthread_join(p_thread, NULL);
+            if(c == 'Z' || c == 'z') {
+                pthread_cancel(work_thread);
+                pthread_cancel(p_thread);
+                pthread_join(work_thread, (void **)thread_result);
+                pthread_join(p_thread, (void **)&thread_result[1]);
+                if(thread_result[0] == PTHREAD_CANCELED)
+                    printf("[Work thread] Thread was cancelled\n");
+                if(thread_result[1] == PTHREAD_CANCELED)
+                    printf("[Pause thread] Thread was cancelled\n");
+            }
         }
     }
     pthread_join(work_thread, NULL);
