@@ -7,6 +7,7 @@
 #include <poll.h> //funkcja poll
 #include <pthread.h>
 #include <unistd.h> //STDIN_FILENO
+#include <stdatomic.h> //dla operacji atomicznych
 
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
@@ -52,6 +53,7 @@ typedef struct
     size_t total;
     pthread_mutex_t mutex;
     bool is_finished;
+    bool stop_request;
 } DaneWatku;
 
 Wektor *wczyt(const char *filename, Memory *mem)
@@ -142,6 +144,14 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
     }
     for (size_t i = 0; i < rozmiar_test_data; i++)
     {
+        // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
+            // break; //wyjdz z petli i zakoncz dzialanie watku
+        pthread_mutex_lock(&dane_watku->mutex);
+            if(dane_watku->stop_request){
+                pthread_mutex_unlock(&dane_watku->mutex);
+                break;
+            }
+        pthread_mutex_unlock(&dane_watku->mutex);
         for (size_t j = 0; j < rozmiar_train_data; j++)
         {
             double dx = train_data[j].x - test_data[i].x;
@@ -179,28 +189,15 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
 // watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
-      if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
-    {
-        printf("[Pause thread] Cancel state failed!\n");
-        pthread_exit(NULL);
-    }
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     DaneWatku *dane_thread = (DaneWatku *)arg;
     ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
     printf("[Work thread] Koncze dzialanie\n");
-    pthread_exit(NULL);
     return NULL; // zeby nie bylo warninga
 }
 
 // watek obslugujacy wyswietlanie rezultatow
 void *pause_thread(void *arg)
 {
-    if(pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0) //ustawienie wątku jako cancellable
-    {
-        printf("[Pause thread] Cancel state failed!\n");
-        pthread_exit(NULL);
-    }
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     DaneWatku *dane = (DaneWatku *)arg;
     struct pollfd pfd = {
         .fd = STDIN_FILENO, // monitorujemy STDIN, deskryptorem tego jest STDIN_FILENO
@@ -240,10 +237,18 @@ void *pause_thread(void *arg)
                 printf("Dokladnosc:  %.3f\n", ratio);
                 printf("-----------------------\n");
             }
+            else if (c == 'z' || c == 'Z'){
+                printf("[Pause thread] Wcisnieto klawisz 'Z'\n");
+                pthread_mutex_lock(&dane->mutex);
+                dane->stop_request = true;
+                pthread_mutex_unlock(&dane->mutex);
+                // atomic_store(&dane->stop_request, true); //zapisz taka wartosc do pamieci
+                break;
+            }
+        
         }
     }
-    printf("[Pause thread] Koncze dzialanie\n");
-    pthread_exit(NULL);
+    printf("[Pause thread] Koncze dzialanie.\n");
     return NULL; // zeby nie bylo warninga
 }
 
@@ -255,12 +260,6 @@ int main(int argc, char *argv[])
     pthread_t work_thread, p_thread;
     char wybor_uzytkownika;
 
-    struct pollfd pfd = {
-        .fd = STDIN_FILENO,
-        .events = POLLIN
-    };
-
-    void *thread_result[2]; //zmienna sluzaca do zwracania informacji o tym jak zakonczyl sie dany watek
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
@@ -270,6 +269,8 @@ int main(int argc, char *argv[])
     dane_watku.total = (double)rozmiar[TEST_DATA];
     dane_watku.wektor_test = test_data;
     dane_watku.wektor_train = train_data;
+    // atomic_init(&dane_watku.stop_request, false);
+    dane_watku.stop_request = false;
     pthread_mutex_init(&dane_watku.mutex, NULL);
 
     printf("***********************************\n");
@@ -293,20 +294,8 @@ int main(int argc, char *argv[])
             printf("Error creating thread\n");
             return 1;
         }
-        int ret = poll(&pfd, 1, 100);
-        if(ret > 0 && (pfd.revents & POLLIN)){
-            int c = getchar();
-            if(c == 'Z' || c == 'z') {
-                pthread_cancel(work_thread);
-                pthread_cancel(p_thread);
-                pthread_join(work_thread, (void **)thread_result);
-                pthread_join(p_thread, (void **)&thread_result[1]);
-                if(thread_result[0] == PTHREAD_CANCELED)
-                    printf("[Work thread] Thread was cancelled\n");
-                if(thread_result[1] == PTHREAD_CANCELED)
-                    printf("[Pause thread] Thread was cancelled\n");
-            }
-        }
+       
+        
     }
     pthread_join(work_thread, NULL);
     pthread_join(p_thread, NULL);
