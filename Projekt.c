@@ -16,6 +16,8 @@
 #define WEKTOR_TRAIN 2
 #define WEKTOR_TEST 3
 
+#define NUM_THREADS 5
+
 char buffer[BUF_SIZE];
 
 const char *filename_train = "train.csv";
@@ -50,6 +52,8 @@ typedef struct
     unsigned long misses;
     size_t processed;
     size_t total;
+    size_t num_of_threads;
+    size_t start_index;
     pthread_mutex_t mutex;
     bool is_finished;  // sprawdzamy czy watek sie zakonczyl
     bool stop_request; // sprawdzamy czy wcisnieto przycisk Z
@@ -110,13 +114,13 @@ Wektor *wczyt(const char *filename, Memory *mem)
 }
 
 // funkcja pomocnicza
-void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylko odczytujemy dane
-{
-    Wektor *dane = (Wektor *)ptr;
-    printf("Dane %s:\n", typ == WEKTOR_TRAIN ? "treningowe" : "testowe");
-    for (size_t i = 0; i < rozmiar; i++)
-        printf("Dane [%zu]: x: %.1lf, y:  %.1lf, z: %.1lf, type: %c\n", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
-}
+// void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylko odczytujemy dane
+// {
+//     Wektor *dane = (Wektor *)ptr;
+//     printf("Dane %s:\n", typ == WEKTOR_TRAIN ? "treningowe" : "testowe");
+//     for (size_t i = 0; i < rozmiar; i++)
+//         printf("Dane [%zu]: x: %.1lf, y:  %.1lf, z: %.1lf, type: %c\n", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
+// }
 
 // funkcja porównująca do qsort (sortowanie rosnące)
 int compar(const void *a, const void *b)
@@ -167,8 +171,8 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
                 break;
             }
             pthread_mutex_unlock(&dane_watku->mutex);
-
-            for (size_t j = 0; j < rozmiar_train_data; j++)
+        
+            for (size_t j = dane_watku->start_index; j < rozmiar_train_data; j+=dane_watku->num_of_threads)
             {
                 double dx = train_data[j].x - test_data[i].x;
                 double dy = train_data[j].y - test_data[i].y;
@@ -312,7 +316,7 @@ int main(int argc, char *argv[])
     Memory mem_train, mem_test;
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
-    pthread_t work_thread, p_thread;
+    pthread_t work_thread[NUM_THREADS], p_thread;
     char wybor_uzytkownika;
 
     train_data = wczyt(filename_train, &mem_train);
@@ -323,6 +327,7 @@ int main(int argc, char *argv[])
     dane_watku.total = (double)rozmiar[TEST_DATA];
     dane_watku.wektor_test = test_data;
     dane_watku.wektor_train = train_data;
+    dane_watku.num_of_threads = NUM_THREADS;
     // atomic_init(&dane_watku.stop_request, false);
     dane_watku.stop_request = false;
     dane_watku.is_paused = false;
@@ -354,19 +359,21 @@ int main(int argc, char *argv[])
     printf("[W]Wstrzymaj/wznow dzialanie\n");
     printf("[R]Reset. Zacznij oblczanie od poczatku\n");
     printf("[Z]Zakoncz analize\n");
-    if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
+    for(int i=0; i<5; i++){
+    dane_watku.start_index = i;
+    if (pthread_create(&work_thread[i], NULL, calc_thread, (void *)&dane_watku) != 0)
     {
         printf("Error creating thread\n");
         return 1;
     }
-
+    }
     if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
     {
         printf("Error creating thread\n");
         return 1;
     }
-
-    pthread_join(work_thread, NULL);
+    for(int i=0; i<5; i++)
+        pthread_join(work_thread[i], NULL);
     pthread_join(p_thread, NULL);
 
     pthread_mutex_destroy(&dane_watku.mutex);
