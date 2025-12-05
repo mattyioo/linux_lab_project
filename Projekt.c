@@ -152,7 +152,7 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
             pthread_mutex_lock(&dane_watku->mutex);
             while (dane_watku->is_paused)                                 // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
                 pthread_cond_wait(&dane_watku->cond, &dane_watku->mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
-            pthread_mutex_unlock(&dane_watku->mutex);   //po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
+            pthread_mutex_unlock(&dane_watku->mutex);                     // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
 
             // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
             // break; //wyjdz z petli i zakoncz dzialanie watku
@@ -210,6 +210,7 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
         printf("Pudla:       %lu\n", dane_watku->misses);
         printf("Dokladnosc:  %.3f\n", (double)dane_watku->hits / (dane_watku->hits + dane_watku->misses));
         printf("-----------------------\n");
+        printf("Stan obliczen: Zakonczony\n");
     }
 }
 
@@ -263,6 +264,10 @@ void *pause_thread(void *arg)
                 printf("Pudla:       %lu\n", m);
                 printf("Dokladnosc:  %.3f\n", ratio);
                 printf("-----------------------\n");
+                if (dane->is_paused)
+                    printf("Stan obliczen: Wstrzymany\n");
+                else
+                    printf("Stan obliczen: Uruchomiony\n");
             }
             else if (c == 'z' || c == 'Z')
             {
@@ -329,27 +334,39 @@ int main(int argc, char *argv[])
     printf("***********************************\n");
     printf("Witaj w progamie klasfyfikatora\n");
     printf("***********************************\n");
-    printf("[K]Rozpocznij klasyfikacje: ");
-    scanf("%c", &wybor_uzytkownika);
-    if (wybor_uzytkownika == 'k' || wybor_uzytkownika == 'K')
+    printf("[K]Rozpocznij klasyfikacje:\n");
+    printf("[P]Sprawdz stan obliczen:\n");
+    printf("Wybor uzytkownika: ");
+    while (1)
     {
-        printf("***Dodatkowe opcje***\n");
-        printf("[P]Wyswielt rezultaty\n");
-        printf("[W]Wstrzymaj/wznow dzialanie\n");
-        printf("[R]Reset. Zacznij oblczanie od poczatku\n");
-        printf("[Z]Zakoncz analize\n");
-        if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
-        {
-            printf("Error creating thread\n");
-            return 1;
-        }
-
-        if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
-        {
-            printf("Error creating thread\n");
-            return 1;
-        }
+        scanf("%c", &wybor_uzytkownika);
+        getchar();
+        if (wybor_uzytkownika == 'k' || wybor_uzytkownika == 'K')
+            break;
+        if (wybor_uzytkownika == 'p' || wybor_uzytkownika == 'P')
+            printf("Stan obliczen: Bezczynny\n");
+        printf("\n[K]Rozpocznij klasyfikacje:\n");
+        printf("[P]Sprawdz stan obliczen:\n");
+        printf("Wybor uzytkownika: ");
     }
+
+    printf("***Dodatkowe opcje***\n");
+    printf("[P]Wyswielt rezultaty\n");
+    printf("[W]Wstrzymaj/wznow dzialanie\n");
+    printf("[R]Reset. Zacznij oblczanie od poczatku\n");
+    printf("[Z]Zakoncz analize\n");
+    if (pthread_create(&work_thread, NULL, calc_thread, (void *)&dane_watku) != 0)
+    {
+        printf("Error creating thread\n");
+        return 1;
+    }
+
+    if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
+    {
+        printf("Error creating thread\n");
+        return 1;
+    }
+
     pthread_join(work_thread, NULL);
     pthread_join(p_thread, NULL);
 
