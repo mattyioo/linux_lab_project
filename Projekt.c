@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <math.h>
 #include <poll.h> //funkcja poll
 #include <pthread.h>
 #include <unistd.h>    //STDIN_FILENO
@@ -175,7 +174,7 @@ void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku
                 double dy = train_data[j].y - test_data[i].y;
                 double dz = train_data[j].z - test_data[i].z;
 
-                distance[j].odleglosc = sqrt(dx * dx + dy * dy + dz * dz); // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
+                distance[j].odleglosc = dx * dx + dy * dy + dz * dz; // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
                 distance[j].type = train_data[j].type;                     // zapisujemy typ kazdego obliczonego wektora treningowego
             }
             qsort(distance, rozmiar_test_data, sizeof(Dystans), compar); // sortowanie rosnące
