@@ -130,10 +130,12 @@ void *calc_thread(void *arg)
         // Tylko jeden wątek czyści dane globalne
         if (ret == PTHREAD_BARRIER_SERIAL_THREAD)
         {
+            pthread_mutex_lock(&mutex);
             dane_watku->hits = 0;
             dane_watku->misses = 0;
             dane_watku->processed = 0;
             dane_watku->reset = false; // Potwierdzenie wykonania resetu
+            pthread_mutex_unlock(&mutex);
         }
 
         // inne watki czekaja az skonczy sie czyszczenie
