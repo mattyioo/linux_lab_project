@@ -7,7 +7,7 @@
 #include <poll.h> //funkcja poll
 #include <pthread.h>
 #include <unistd.h>    //STDIN_FILENO
-#include <stdatomic.h> //dla operacji atomicznych
+
 
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
