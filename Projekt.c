@@ -12,8 +12,8 @@
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
 #define TEST_DATA 1
-
 #define NUM_THREADS 3
+
 char buffer[BUF_SIZE];
 
 pthread_mutex_t mutex;
@@ -181,7 +181,7 @@ void *calc_thread(void *arg)
                 local_misses++;
             local_processed++;
             pthread_mutex_unlock(&mutex);
-            if (local_processed % 19 == 0) // aktualizuejmy co 19 bo inaczej w ostatecznych danych wyswietli sie 19980 zamiast 20 tys.
+            if (local_processed % 20 == 0) // aaktualizujemy co 20
             {
                 pthread_mutex_lock(&mutex);
                 dane_watku->hits += local_hits;
@@ -193,13 +193,17 @@ void *calc_thread(void *arg)
                 local_processed = 0;
             }
         }
+        // Aktualizujemy resztki statystyk, które nie załapały się na modulo 19
         pthread_mutex_lock(&mutex);
+        dane_watku->hits += local_hits;
+        dane_watku->misses += local_misses;
+        dane_watku->processed += local_processed;
+        pthread_mutex_unlock(&mutex);
+
+        break; //break musi byc nad handle reset bo inaczej po skonczeniu obliczen petla while(1) zaczynalaby sie od nowa
 
     handle_reset:
         continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
-
-        pthread_mutex_unlock(&mutex);
-        break;
     }
 end:
     pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
