@@ -208,7 +208,6 @@ void *calc_thread(void *arg)
         pthread_mutex_unlock(&mutex);
         break;
     }
-// free(distance);
 end:
     pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
     dane_watku->is_finished = true; // zmiana stanu obliczen na finished
@@ -328,7 +327,6 @@ int main(int argc, char *argv[])
     dane_watku.total = (double)rozmiar[TEST_DATA];
     dane_watku.wektor_test = test_data;
     dane_watku.wektor_train = train_data;
-    // atomic_init(&dane_watku.stop_request, false);
     dane_watku.stop_request = false;
     dane_watku.is_paused = false;
     dane_watku.reset = false;
@@ -365,7 +363,6 @@ int main(int argc, char *argv[])
     printf("[Z]Zakoncz analize\n");
     for (int i = 0; i < NUM_THREADS; i++)
     {
-
         thread_info[i].thread_id = i;
         thread_info[i].data = &dane_watku;
         if (pthread_create(&work_thread[i], NULL, calc_thread, (void *)&thread_info[i]) != 0)
