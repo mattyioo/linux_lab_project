@@ -123,7 +123,7 @@ void *calc_thread(void *arg)
     DaneWatku *dane_watku = info->data;
   
     dane_watku->is_finished = false;
-    int local_hits;
+    int local_hits; //lalal
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
 
