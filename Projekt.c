@@ -13,10 +13,6 @@
 #define TRAIN_DATA 0
 #define TEST_DATA 1
 
-// definiowanie typow
-#define WEKTOR_TRAIN 2
-#define WEKTOR_TEST 3
-
 #define NUM_THREADS 3
 char buffer[BUF_SIZE];
 
@@ -39,7 +35,6 @@ typedef struct
     size_t rozmiar;
     size_t capacity;
 } Memory;
-
 
 typedef struct
 {
@@ -119,9 +114,9 @@ void *calc_thread(void *arg)
 {
     ThreadInfo *info = (ThreadInfo *)arg;
     DaneWatku *dane_watku = info->data;
-  
+
     dane_watku->is_finished = false;
-    int local_hits; //lalal
+    int local_hits;   // lalal
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
 
@@ -178,7 +173,7 @@ void *calc_thread(void *arg)
                     type = dane_watku->wektor_train[j].type;
                 }
             }
-            
+
             pthread_mutex_lock(&mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
             if (type == dane_watku->wektor_test[i].type)
                 local_hits++;
@@ -314,7 +309,7 @@ int main(int argc, char *argv[])
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
     pthread_t work_thread[NUM_THREADS], p_thread;
-    char wybor_uzytkownika; 
+    char wybor_uzytkownika;
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
