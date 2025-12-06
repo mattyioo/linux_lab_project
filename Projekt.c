@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200112L // do uzywania barrier
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,9 +17,11 @@
 #define WEKTOR_TRAIN 2
 #define WEKTOR_TEST 3
 
-#define NUM_THREADS 5
-
+#define NUM_THREADS 3
 char buffer[BUF_SIZE];
+pthread_mutex_t mutex;
+pthread_cond_t cond;
+pthread_barrier_t barrier;
 
 const char *filename_train = "train.csv";
 const char *filename_test = "test.csv";
@@ -48,19 +51,21 @@ typedef struct
     const Wektor *wektor_test;
     size_t size_test;
     size_t size_train;
-    unsigned long hits;
-    unsigned long misses;
+    int hits;
+    int misses;
     size_t processed;
     size_t total;
-    size_t num_of_threads;
-    size_t start_index;
-    pthread_mutex_t mutex;
     bool is_finished;  // sprawdzamy czy watek sie zakonczyl
     bool stop_request; // sprawdzamy czy wcisnieto przycisk Z
     bool is_paused;    // sprawdzamy czy watek jest wstrzymany
     bool reset;        // sprawdzamy czy nastapil reset
-    pthread_cond_t cond;
 } DaneWatku;
+
+typedef struct
+{
+    int thread_id; // do rozpoznawiania watkow tzn. watek 0 watek 1 itp.
+    DaneWatku *data;
+} ThreadInfo;
 
 Wektor *wczyt(const char *filename, Memory *mem)
 {
@@ -136,93 +141,204 @@ int compar(const void *a, const void *b)
     return 0;
 }
 // obliczanie odleglosci euklidesowej + obliczanie procentu trafien w zbiorze
-void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku *dane_watku, size_t rozmiar_test_data, size_t rozmiar_train_data) // rozmiar test data napewno jest wiekszy od test data
-{                                                                                                                                                  // nie chcemy modyfikowac struktur dlatego const
-    dane_watku->is_finished = false;
-    Dystans *distance = (Dystans *)malloc(rozmiar_train_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
-    if (distance == NULL)
-    {
-        printf("Blad alokacji pamieci!\n");
-        exit(1);
-    }
-    while (1)
-    {
-        dane_watku->hits = 0;
-        dane_watku->misses = 0;
-        dane_watku->processed = 0;
-        for (size_t i = 0; i < rozmiar_test_data; i++)
-        {
-            pthread_mutex_lock(&dane_watku->mutex);
-            while (dane_watku->is_paused)                                 // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
-                pthread_cond_wait(&dane_watku->cond, &dane_watku->mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
-            pthread_mutex_unlock(&dane_watku->mutex);                     // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
+// void ratio_distance(const Wektor *train_data, const Wektor *test_data, DaneWatku *dane_watku, size_t rozmiar_test_data, size_t rozmiar_train_data) // rozmiar test data napewno jest wiekszy od test data
+// {                                                                                                                                                  // nie chcemy modyfikowac struktur dlatego const
+//     dane_watku->is_finished = false;
+//     Dystans *distance = (Dystans *)malloc(rozmiar_train_data * sizeof(Dystans)); // alokujemy tablice struktur dystans
+//     if (distance == NULL)
+//     {
+//         printf("Blad alokacji pamieci!\n");
+//         exit(1);
+//     }
+//     while (1)
+//     {
+//         dane_watku->hits = 0;
+//         dane_watku->misses = 0;
+//         dane_watku->processed = 0;
+//         for (size_t i = 0; i < rozmiar_test_data; i++)
+//         {
+//             pthread_mutex_lock(&mutex);
+//             while (dane_watku->is_paused)                                 // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
+//                 pthread_cond_wait(&dane_watku->cond, &mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
+//             pthread_mutex_unlock(&mutex);                     // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
 
-            // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
-            // break; //wyjdz z petli i zakoncz dzialanie watku
-            pthread_mutex_lock(&dane_watku->mutex);
-            if (dane_watku->stop_request) // sprawdzamy czy mamy zakonczyc program
-            {
-                pthread_mutex_unlock(&dane_watku->mutex);
-                break;
-            }
-            else if (dane_watku->reset)
-            { // sprawdzamy czy mamy zrestowac program
-                pthread_mutex_unlock(&dane_watku->mutex);
-                break;
-            }
-            pthread_mutex_unlock(&dane_watku->mutex);
-        
-            for (size_t j = dane_watku->start_index; j < rozmiar_train_data; j+=dane_watku->num_of_threads)
-            {
-                double dx = train_data[j].x - test_data[i].x;
-                double dy = train_data[j].y - test_data[i].y;
-                double dz = train_data[j].z - test_data[i].z;
+//             // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
+//             // break; //wyjdz z petli i zakoncz dzialanie watku
+//             pthread_mutex_lock(&mutex);
+//             if (dane_watku->stop_request) // sprawdzamy czy mamy zakonczyc program
+//             {
+//                 pthread_mutex_unlock(&mutex);
+//                 break;
+//             }
+//             else if (dane_watku->reset)
+//             { // sprawdzamy czy mamy zrestowac program
+//                 pthread_mutex_unlock(&mutex);
+//                 break;
+//             }
+//             pthread_mutex_unlock(&mutex);
 
-                distance[j].odleglosc = dx * dx + dy * dy + dz * dz; // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
-                distance[j].type = train_data[j].type;                     // zapisujemy typ kazdego obliczonego wektora treningowego
-            }
-            qsort(distance, rozmiar_test_data, sizeof(Dystans), compar); // sortowanie rosnące
-            // najblizszy sasiad w takim razie to bedzie tablica z indeksem 0
-            pthread_mutex_lock(&dane_watku->mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
-            if (distance[0].type == test_data[i].type)
-                dane_watku->hits++;
-            else
-                dane_watku->misses++;
-            dane_watku->processed++;
-            pthread_mutex_unlock(&dane_watku->mutex);
-        }
-        pthread_mutex_lock(&dane_watku->mutex);
-        if (dane_watku->reset)
-        {
-            dane_watku->reset = false;
-            pthread_mutex_unlock(&dane_watku->mutex);
-            continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
-        }
-        pthread_mutex_unlock(&dane_watku->mutex);
-        break;
-    }
-    free(distance);
-    pthread_mutex_lock(&dane_watku->mutex);
-    dane_watku->is_finished = true; // zmiana stanu obliczen na finished
-    pthread_mutex_unlock(&dane_watku->mutex);
-    if (dane_watku->is_finished)
-    {
-        printf("\n--- OSTATECZNE DANE ---\n");
-        printf("Postep:      %zu / %zu [%.1f%%]\n", dane_watku->processed, dane_watku->total, 100 * ((double)dane_watku->processed / dane_watku->total));
-        printf("Trafienia:   %lu\n", dane_watku->hits);
-        printf("Pudla:       %lu\n", dane_watku->misses);
-        printf("Dokladnosc:  %.3f\n", (double)dane_watku->hits / (dane_watku->hits + dane_watku->misses));
-        printf("-----------------------\n");
-        printf("Stan obliczen: Zakonczony\n");
-    }
-}
+//             for (size_t j = dane_watku->start_index; j < rozmiar_train_data; j+=NUM_THREADS)
+//             {
+//                 double dx = train_data[j].x - test_data[i].x;
+//                 double dy = train_data[j].y - test_data[i].y;
+//                 double dz = train_data[j].z - test_data[i].z;
+
+//                 distance[j].odleglosc = dx * dx + dy * dy + dz * dz; // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
+//                 distance[j].type = train_data[j].type;                     // zapisujemy typ kazdego obliczonego wektora treningowego
+//             }
+//             qsort(distance, rozmiar_test_data, sizeof(Dystans), compar); // sortowanie rosnące
+//             // najblizszy sasiad w takim razie to bedzie tablica z indeksem 0
+//             pthread_mutex_lock(&mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
+//             if (distance[0].type == test_data[i].type)
+//                 dane_watku->hits++;
+//             else
+//                 dane_watku->misses++;
+//             dane_watku->processed++;
+//             pthread_mutex_unlock(&mutex);
+//         }
+//         pthread_mutex_lock(&mutex);
+//         if (dane_watku->reset)
+//         {
+//             dane_watku->reset = false;
+//             pthread_mutex_unlock(&mutex);
+//             continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
+//         }
+//         pthread_mutex_unlock(&mutex);
+//         break;
+//     }
+//     free(distance);
+//     pthread_mutex_lock(&mutex);
+//     dane_watku->is_finished = true; // zmiana stanu obliczen na finished
+//     pthread_mutex_unlock(&mutex);
+//     if (dane_watku->is_finished)
+//     {
+//         printf("\n--- OSTATECZNE DANE ---\n");
+//         printf("Postep:      %zu / %zu [%.1f%%]\n", dane_watku->processed, dane_watku->total, 100 * ((double)dane_watku->processed / dane_watku->total));
+//         printf("Trafienia:   %lu\n", dane_watku->hits);
+//         printf("Pudla:       %lu\n", dane_watku->misses);
+//         printf("Dokladnosc:  %.3f\n", (double)dane_watku->hits / (dane_watku->hits + dane_watku->misses));
+//         printf("-----------------------\n");
+//         printf("Stan obliczen: Zakonczony\n");
+//     }
+// }
 
 // watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
 {
-    DaneWatku *dane_thread = (DaneWatku *)arg;
-    ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
-    printf("[Work thread] Koncze dzialanie\n");
+    ThreadInfo *info = (ThreadInfo *)arg;
+    DaneWatku *dane_watku = info->data;
+    // ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
+    dane_watku->is_finished = false;
+    int local_hits;
+    int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
+    size_t local_processed;
+    // // Dystans *distance = (Dystans *)malloc(dane_watku->size_train * sizeof(Dystans)); // alokujemy tablice struktur dystans
+    // if (distance == NULL)
+    // {
+    //     printf("Blad alokacji pamieci!\n");
+    //     exit(1);
+    // }
+    while (1)
+    {
+        local_hits = 0;
+        local_misses = 0; // kazdy watek zeruje swoja zmienna lokalna
+        local_processed = 0;
+        int ret = pthread_barrier_wait(&barrier);
+
+        // Tylko jeden wątek czyści dane globalne
+        if (ret == PTHREAD_BARRIER_SERIAL_THREAD)
+        {
+            dane_watku->hits = 0;
+            dane_watku->misses = 0;
+            dane_watku->processed = 0;
+            dane_watku->reset = false; // Potwierdzenie wykonania resetu
+        }
+
+        // inne watki czekaja az skonczy sie czyszczenie
+        pthread_barrier_wait(&barrier);
+        for (size_t i = info->thread_id; i < dane_watku->size_test; i += NUM_THREADS) // watki skacza po zbiorze testowym
+        {
+            pthread_mutex_lock(&mutex);
+            while (dane_watku->is_paused)         // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
+                pthread_cond_wait(&cond, &mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
+            pthread_mutex_unlock(&mutex);         // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
+
+            // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
+            // break; //wyjdz z petli i zakoncz dzialanie watku
+            pthread_mutex_lock(&mutex);
+            if (dane_watku->stop_request) // sprawdzamy czy mamy zakonczyc program
+            {
+                pthread_mutex_unlock(&mutex);
+                goto end;
+            }
+            else if (dane_watku->reset)
+            { // sprawdzamy czy mamy zrestowac program
+                pthread_mutex_unlock(&mutex);
+                goto handle_reset;
+            }
+            pthread_mutex_unlock(&mutex);
+
+            double min_dist = __DBL_MAX__; // najwieksza mozliwa wartosc jaka moze przechowac typ double
+            char type = ' ';
+            for (size_t j = 0; j < dane_watku->size_train; j++)
+            {
+                double dx = dane_watku->wektor_train[j].x - dane_watku->wektor_test[i].x;
+                double dy = dane_watku->wektor_train[j].y - dane_watku->wektor_test[i].y;
+                double dz = dane_watku->wektor_train[j].z - dane_watku->wektor_test[i].z;
+
+                double distance = dx * dx + dy * dy + dz * dz;
+                if (distance < min_dist)
+                {
+                    min_dist = distance; // o wiele szybszy algorytm bez qsorta
+                    type = dane_watku->wektor_train[j].type;
+                }
+                // distance[j].odleglosc = dx * dx + dy * dy + dz * dz; // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
+                // distance[j].type = dane_watku->wektor_train[j].type; // zapisujemy typ kazdego obliczonego wektora treningowego
+            }
+            // qsort(distance, dane_watku->size_train, sizeof(Dystans), compar); // sortowanie rosnące
+            // najblizszy sasiad w takim razie to bedzie tablica z indeksem 0
+            pthread_mutex_lock(&mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
+            if (type == dane_watku->wektor_test[i].type)
+                local_hits++;
+            else
+                local_misses++;
+            local_processed++;
+            pthread_mutex_unlock(&mutex);
+            if (local_processed % 19 == 0) // aktualizuejmy co 19 bo inaczej w ostatecznych danych wyswietli sie 19980 zamiast 20 tys.
+            {
+                pthread_mutex_lock(&mutex);
+                dane_watku->hits += local_hits;
+                dane_watku->misses += local_misses;
+                dane_watku->processed += local_processed;
+                pthread_mutex_unlock(&mutex);
+                local_hits = 0;
+                local_misses = 0;
+                local_processed = 0;
+            }
+        }
+        pthread_mutex_lock(&mutex);
+
+    handle_reset:
+        continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
+
+        pthread_mutex_unlock(&mutex);
+        break;
+    }
+// free(distance);
+end:
+    pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
+    dane_watku->is_finished = true; // zmiana stanu obliczen na finished
+    if (info->thread_id == 0)
+    {
+        printf("\n--- OSTATECZNE DANE ---\n");
+        printf("Postep:      %zu / %zu [%.1f%%]\n", dane_watku->processed, dane_watku->total, 100 * ((double)dane_watku->processed / dane_watku->total));
+        printf("Trafienia:   %d\n", dane_watku->hits);
+        printf("Pudla:       %d\n", dane_watku->misses);
+        printf("Dokladnosc:  %.3f\n", (double)dane_watku->hits / (dane_watku->hits + dane_watku->misses));
+        printf("-----------------------\n");
+        printf("Stan obliczen: Zakonczony\n");
+    }
+    printf("[Work thread] Koncze dzialanie, ID: %d\n", info->thread_id);
     return NULL; // zeby nie bylo warninga
 }
 
@@ -237,9 +353,9 @@ void *pause_thread(void *arg)
 
     while (1)
     {
-        pthread_mutex_lock(&dane->mutex);
+        pthread_mutex_lock(&mutex);
         bool finished = dane->is_finished;
-        pthread_mutex_unlock(&dane->mutex);
+        pthread_mutex_unlock(&mutex);
 
         if (finished)
             break;
@@ -253,12 +369,12 @@ void *pause_thread(void *arg)
                 continue;
             if (c == 'p' || c == 'P')
             {
-                pthread_mutex_lock(&dane->mutex);
+                pthread_mutex_lock(&mutex);
                 unsigned long h = dane->hits;
                 unsigned long m = dane->misses;
                 size_t state = dane->processed;
                 size_t total = dane->total;
-                pthread_mutex_unlock(&dane->mutex);
+                pthread_mutex_unlock(&mutex);
                 double percent = ((double)state / total) * 100;
                 double ratio = (double)h / (h + m);
                 printf("\n--- STATUS OBLICZEN ---\n");
@@ -275,35 +391,36 @@ void *pause_thread(void *arg)
             else if (c == 'z' || c == 'Z')
             {
                 printf("[Pause thread] Wcisnieto klawisz 'Z'\n");
-                pthread_mutex_lock(&dane->mutex);
+                pthread_mutex_lock(&mutex);
                 dane->stop_request = true;
-                pthread_mutex_unlock(&dane->mutex);
+                pthread_mutex_unlock(&mutex);
                 // atomic_store(&dane->stop_request, true); //zapisz taka wartosc do pamieci
                 break;
             }
             else if (c == 'w' || c == 'W')
             {
-                pthread_mutex_lock(&dane->mutex);
+                pthread_mutex_lock(&mutex);
                 dane->is_paused = !dane->is_paused;
                 if (!dane->is_paused) // sprawdzamy czy watek nie jest wstrzymany
                 {
-                    pthread_cond_signal(&dane->cond); // wybudzenie watku drugiego jesli watek nie jest wstrzymany
+                    pthread_cond_broadcast(&cond); // wybudzenie wszystkich watkow
                     printf("Obliczenia wznowione.\n");
                 }
                 else
                     printf("Obliczenia wstrzymane.\n");
-                pthread_mutex_unlock(&dane->mutex);
+                pthread_mutex_unlock(&mutex);
             }
             else if (c == 'r' || c == 'R')
             {
-                pthread_mutex_lock(&dane->mutex);
+                pthread_mutex_lock(&mutex);
                 dane->reset = true;
                 if (dane->is_paused)
                 { // jesli watek jest wstrzmany to zasygnalizuj mu zeby sie obudzil
                     dane->is_paused = false;
-                    pthread_cond_signal(&dane->cond);
+                    pthread_cond_broadcast(&cond);
                 }
-                pthread_mutex_unlock(&dane->mutex);
+                pthread_mutex_unlock(&mutex);
+                printf("Zresetowano obliczenia!\n");
             }
         }
     }
@@ -327,13 +444,16 @@ int main(int argc, char *argv[])
     dane_watku.total = (double)rozmiar[TEST_DATA];
     dane_watku.wektor_test = test_data;
     dane_watku.wektor_train = train_data;
-    dane_watku.num_of_threads = NUM_THREADS;
     // atomic_init(&dane_watku.stop_request, false);
     dane_watku.stop_request = false;
     dane_watku.is_paused = false;
     dane_watku.reset = false;
-    pthread_mutex_init(&dane_watku.mutex, NULL);
-    pthread_cond_init(&dane_watku.cond, NULL);
+
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&cond, NULL);
+    pthread_barrier_init(&barrier, NULL, NUM_THREADS);
+
+    ThreadInfo thread_info[NUM_THREADS];
 
     printf("***********************************\n");
     printf("Witaj w progamie klasfyfikatora\n");
@@ -359,25 +479,29 @@ int main(int argc, char *argv[])
     printf("[W]Wstrzymaj/wznow dzialanie\n");
     printf("[R]Reset. Zacznij oblczanie od poczatku\n");
     printf("[Z]Zakoncz analize\n");
-    for(int i=0; i<5; i++){
-    dane_watku.start_index = i;
-    if (pthread_create(&work_thread[i], NULL, calc_thread, (void *)&dane_watku) != 0)
+    for (int i = 0; i < NUM_THREADS; i++)
     {
-        printf("Error creating thread\n");
-        return 1;
-    }
+
+        thread_info[i].thread_id = i;
+        thread_info[i].data = &dane_watku;
+        if (pthread_create(&work_thread[i], NULL, calc_thread, (void *)&thread_info[i]) != 0)
+        {
+            printf("Error creating thread\n");
+            return 1;
+        }
     }
     if (pthread_create(&p_thread, NULL, pause_thread, (void *)&dane_watku) != 0)
     {
         printf("Error creating thread\n");
         return 1;
     }
-    for(int i=0; i<5; i++)
+    for (int i = 0; i < NUM_THREADS; i++)
         pthread_join(work_thread[i], NULL);
     pthread_join(p_thread, NULL);
 
-    pthread_mutex_destroy(&dane_watku.mutex);
-    pthread_cond_destroy(&dane_watku.cond);
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&cond);
+    pthread_barrier_destroy(&barrier);
 
     free(train_data);
     free(test_data);
