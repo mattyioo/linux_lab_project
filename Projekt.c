@@ -39,11 +39,6 @@ typedef struct
     size_t capacity;
 } Memory;
 
-typedef struct
-{
-    double odleglosc;
-    char type;
-} Dystans;
 
 typedef struct
 {
@@ -126,17 +121,12 @@ void *calc_thread(void *arg)
 {
     ThreadInfo *info = (ThreadInfo *)arg;
     DaneWatku *dane_watku = info->data;
-    // ratio_distance(dane_thread->wektor_train, dane_thread->wektor_test, dane_thread, dane_thread->size_test, dane_thread->size_train);
+  
     dane_watku->is_finished = false;
     int local_hits;
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
-    // // Dystans *distance = (Dystans *)malloc(dane_watku->size_train * sizeof(Dystans)); // alokujemy tablice struktur dystans
-    // if (distance == NULL)
-    // {
-    //     printf("Blad alokacji pamieci!\n");
-    //     exit(1);
-    // }
+
     while (1)
     {
         local_hits = 0;
