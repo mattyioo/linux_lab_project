@@ -118,28 +118,7 @@ Wektor *wczyt(const char *filename, Memory *mem)
     return mem->wektor; // zwracamy wskaznik na zaalokowana pamiec typu Wektor *
 }
 
-// funkcja pomocnicza
-// void print_danych(const void *ptr, uint8_t typ, size_t rozmiar) // const bo tylko odczytujemy dane
-// {
-//     Wektor *dane = (Wektor *)ptr;
-//     printf("Dane %s:\n", typ == WEKTOR_TRAIN ? "treningowe" : "testowe");
-//     for (size_t i = 0; i < rozmiar; i++)
-//         printf("Dane [%zu]: x: %.1lf, y:  %.1lf, z: %.1lf, type: %c\n", i + 1, dane[i].x, dane[i].y, dane[i].z, dane[i].type);
-// }
 
-// funkcja porównująca do qsort (sortowanie rosnące)
-int compar(const void *a, const void *b)
-{
-    const Dystans *d1 = (Dystans *)a;
-    const Dystans *d2 = (Dystans *)b;
-
-    if (d1->odleglosc > d2->odleglosc)
-        return 1;
-    if (d1->odleglosc < d2->odleglosc)
-        return -1;
-
-    return 0;
-}
 
 
 // watek do przeprowadznia obliczen
