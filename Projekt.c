@@ -275,7 +275,6 @@ void *pause_thread(void *arg)
                 pthread_mutex_lock(&mutex);
                 dane->stop_request = true;
                 pthread_mutex_unlock(&mutex);
-                // atomic_store(&dane->stop_request, true); //zapisz taka wartosc do pamieci
                 break;
             }
             else if (c == 'w' || c == 'W')
@@ -315,7 +314,7 @@ int main(int argc, char *argv[])
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
     pthread_t work_thread[NUM_THREADS], p_thread;
-    char wybor_uzytkownika; //sialala
+    char wybor_uzytkownika; 
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
