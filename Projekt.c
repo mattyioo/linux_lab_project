@@ -19,6 +19,7 @@
 
 #define NUM_THREADS 3
 char buffer[BUF_SIZE];
+
 pthread_mutex_t mutex;
 pthread_cond_t cond;
 pthread_barrier_t barrier;
@@ -112,9 +113,6 @@ Wektor *wczyt(const char *filename, Memory *mem)
     fclose(pf);
     return mem->wektor; // zwracamy wskaznik na zaalokowana pamiec typu Wektor *
 }
-
-
-
 
 // watek do przeprowadznia obliczen
 void *calc_thread(void *arg)
@@ -317,7 +315,7 @@ int main(int argc, char *argv[])
     Wektor *train_data, *test_data;
     DaneWatku dane_watku;
     pthread_t work_thread[NUM_THREADS], p_thread;
-    char wybor_uzytkownika;
+    char wybor_uzytkownika; //sialala
 
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
