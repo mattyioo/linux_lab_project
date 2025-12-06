@@ -152,8 +152,6 @@ void *calc_thread(void *arg)
                 pthread_cond_wait(&cond, &mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
             pthread_mutex_unlock(&mutex);         // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
 
-            // if(atomic_load(&dane_watku->stop_request)) //pobierz i sprawdz aktualna wartosc z pamieci
-            // break; //wyjdz z petli i zakoncz dzialanie watku
             pthread_mutex_lock(&mutex);
             if (dane_watku->stop_request) // sprawdzamy czy mamy zakonczyc program
             {
@@ -181,11 +179,8 @@ void *calc_thread(void *arg)
                     min_dist = distance; // o wiele szybszy algorytm bez qsorta
                     type = dane_watku->wektor_train[j].type;
                 }
-                // distance[j].odleglosc = dx * dx + dy * dy + dz * dz; // obliczanie odległości jednego punktu testowego od każdego punktu treningowego
-                // distance[j].type = dane_watku->wektor_train[j].type; // zapisujemy typ kazdego obliczonego wektora treningowego
             }
-            // qsort(distance, dane_watku->size_train, sizeof(Dystans), compar); // sortowanie rosnące
-            // najblizszy sasiad w takim razie to bedzie tablica z indeksem 0
+            
             pthread_mutex_lock(&mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
             if (type == dane_watku->wektor_test[i].type)
                 local_hits++;
