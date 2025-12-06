@@ -12,7 +12,7 @@
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
 #define TEST_DATA 1
-#define NUM_THREADS 3
+#define NUM_THREADS 5
 
 char buffer[BUF_SIZE];
 
@@ -317,6 +317,9 @@ int main(int argc, char *argv[])
     pthread_t work_thread[NUM_THREADS], p_thread;
     char wybor_uzytkownika;
 
+    clock_t start,end;
+    start = clock();
+
     train_data = wczyt(filename_train, &mem_train);
     test_data = wczyt(filename_test, &mem_test);
     size_t rozmiar[2] = {mem_train.rozmiar, mem_test.rozmiar};
@@ -384,6 +387,10 @@ int main(int argc, char *argv[])
 
     free(train_data);
     free(test_data);
+    end = clock();
+    double time = ((double)(end - start))/NUM_THREADS;
+    double time_taken = time/CLOCKS_PER_SEC;
+    printf("[main]Czas wykonania programu wynosi: %lf\n", time_taken);
     printf("[main]Koncze dzialanie\n");
     return 0;
 }
