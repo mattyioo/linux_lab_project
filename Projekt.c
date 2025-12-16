@@ -6,8 +6,7 @@
 #include <stdbool.h>
 #include <poll.h> //funkcja poll
 #include <pthread.h>
-#include <unistd.h>    //STDIN_FILENO
-
+#include <unistd.h> //STDIN_FILENO
 
 #define BUF_SIZE 256
 #define TRAIN_DATA 0
@@ -116,14 +115,14 @@ void *calc_thread(void *arg)
     DaneWatku *dane_watku = info->data;
 
     dane_watku->is_finished = false;
-    int local_hits;   // lalal
+    int local_hits;   
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
 
     while (1)
     {
         local_hits = 0;
-        local_misses = 0; // kazdy watek zeruje swoja zmienna lokalna
+        local_misses = 0; // kazdy watek zeruje swoje zmienne lokalne
         local_processed = 0;
         int ret = pthread_barrier_wait(&barrier);
 
@@ -145,9 +144,8 @@ void *calc_thread(void *arg)
             pthread_mutex_lock(&mutex);
             while (dane_watku->is_paused)         // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
                 pthread_cond_wait(&cond, &mutex); // uspienie watku w oczekiwaniu na sygnal i zwolnienie mutexa
-            pthread_mutex_unlock(&mutex);         // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
+                                                  // po wybudzeniu program wykonuje sie od linijki pthread_cont_wait i nastepnie wraca na poczatek while i sprawdza stan zmiennej is_paused
 
-            pthread_mutex_lock(&mutex);
             if (dane_watku->stop_request) // sprawdzamy czy mamy zakonczyc program
             {
                 pthread_mutex_unlock(&mutex);
@@ -161,7 +159,7 @@ void *calc_thread(void *arg)
             pthread_mutex_unlock(&mutex);
 
             double min_dist = __DBL_MAX__; // najwieksza mozliwa wartosc jaka moze przechowac typ double
-            char type = ' ';
+            char type = ' ';               // puste pole do przechowywanie typu
             for (size_t j = 0; j < dane_watku->size_train; j++)
             {
                 double dx = dane_watku->wektor_train[j].x - dane_watku->wektor_test[i].x;
@@ -169,21 +167,19 @@ void *calc_thread(void *arg)
                 double dz = dane_watku->wektor_train[j].z - dane_watku->wektor_test[i].z;
 
                 double distance = dx * dx + dy * dy + dz * dz;
-                if (distance < min_dist)
+                if (distance < min_dist) // znajdowanie najblizszego sasiada
                 {
-                    min_dist = distance; // o wiele szybszy algorytm bez qsorta
+                    min_dist = distance;
                     type = dane_watku->wektor_train[j].type;
                 }
             }
-
-            pthread_mutex_lock(&mutex); // blokujemy zeby zwiekszyc dane bo watek p_thread moze akurat wtedy chciec odczytac
             if (type == dane_watku->wektor_test[i].type)
                 local_hits++;
             else
                 local_misses++;
             local_processed++;
-            pthread_mutex_unlock(&mutex);
-            if (local_processed % 20 == 0) // aaktualizujemy co 20
+
+            if (local_processed % 20 == 0) // aktualizujemy co 20
             {
                 pthread_mutex_lock(&mutex);
                 dane_watku->hits += local_hits;
@@ -202,14 +198,14 @@ void *calc_thread(void *arg)
         dane_watku->processed += local_processed;
         pthread_mutex_unlock(&mutex);
 
-        break; //break musi byc nad handle reset bo inaczej po skonczeniu obliczen petla while(1) zaczynalaby sie od nowa
+        break; // break musi byc nad handle reset bo inaczej po skonczeniu obliczen petla while(1) zaczynalaby sie od nowa
 
     handle_reset:
         continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
     }
 end:
     int ret = pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
-    if (ret == PTHREAD_BARRIER_SERIAL_THREAD) //tylko jeden watek wypisuje dane i ustawia flage
+    if (ret == PTHREAD_BARRIER_SERIAL_THREAD) // tylko jeden watek wypisuje dane i ustawia flage
     {
         dane_watku->is_finished = true; // zmiana stanu obliczen na finished
         printf("\n--- OSTATECZNE DANE ---\n");
@@ -221,7 +217,7 @@ end:
         printf("Stan obliczen: Zakonczony\n");
     }
     printf("[Work thread] Koncze dzialanie, ID: %d\n", info->thread_id);
-    return NULL; // zeby nie bylo warninga
+    return NULL;
 }
 
 // watek obslugujacy wyswietlanie rezultatow
@@ -296,7 +292,7 @@ void *pause_thread(void *arg)
                 pthread_mutex_lock(&mutex);
                 dane->reset = true;
                 if (dane->is_paused)
-                { // jesli watek jest wstrzmany to zasygnalizuj mu zeby sie obudzil
+                { // jesli watki sa wstrzmany to zasygnalizuj zeby sie obudzily
                     dane->is_paused = false;
                     pthread_cond_broadcast(&cond);
                 }
@@ -306,7 +302,7 @@ void *pause_thread(void *arg)
         }
     }
     printf("[Pause thread] Koncze dzialanie.\n");
-    return NULL; // zeby nie bylo warninga
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -317,7 +313,7 @@ int main(int argc, char *argv[])
     pthread_t work_thread[NUM_THREADS], p_thread;
     char wybor_uzytkownika;
 
-    clock_t start,end;
+    clock_t start, end;
     start = clock();
 
     train_data = wczyt(filename_train, &mem_train);
@@ -388,8 +384,8 @@ int main(int argc, char *argv[])
     free(train_data);
     free(test_data);
     end = clock();
-    double time = ((double)(end - start))/NUM_THREADS; //dzielimy przez liczbe watkow aby wynik byl prawidlowy bo inaczej funnkcja clock() zsumowala by czas ile dzialal jeden watek i dodala do wszystkich
-    double time_taken = time/CLOCKS_PER_SEC;
+    double time = ((double)(end - start)) / NUM_THREADS; // dzielimy przez liczbe watkow aby wynik byl prawidlowy bo inaczej funnkcja clock() zsumowala by czas ile dzialal kazdy jeden z watkow
+    double time_taken = time / CLOCKS_PER_SEC;
     printf("[main]Czas wykonania programu wynosi: %lf\n", time_taken);
     printf("[main]Koncze dzialanie\n");
     return 0;
