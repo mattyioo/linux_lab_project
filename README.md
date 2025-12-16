@@ -37,8 +37,8 @@ Funkcja ta zwraca nam wskaźnik(adres) na zaalokowane elementy - w tym przypadku
 
 
 ### 🧮Algorytm i Matematyka
-Do określeia podobieństa między wektorami wykorzystywana jest odległośc euklidesowa. 
-Dla wektora testowego $t_{1}$ = ($x_{1},y_{1},z_{1}$) i wektora treningowego $t_{2}$ = ($x_{1},y_{1},z_{1}$), odległość $d$ wyraża się wzorem:
+Do określeia podobieństa między wektorami wykorzystywana jest odległość euklidesowa. 
+Dla wektora testowego $t_{1}$ = ($x_{1},y_{1},z_{1}$) i wektora treningowego $t_{2}$ = ($x_{2},y_{2},z_{2}$), odległość $d$ wyraża się wzorem:
 
 $$
 d(t_{1},t_{2}) = (x_{2}-x_{1})^{2} + (y_{2}-y_{1})^{2} + (z_{2}-z_{1})^{2}
@@ -73,7 +73,7 @@ Takie działanie znacznie zmniejszy czas analizy danych.
 Wzór na obliczenia dokładności naszych danych:
 
 $$
-Accuarcy = \frac{HITS}{HITS+MISSES} 
+Accuracy = \frac{HITS}{HITS+MISSES} 
 $$
 
 ### 📊Przykładowy wynik działania
