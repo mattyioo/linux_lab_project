@@ -23,12 +23,13 @@ x, y, z, label
 
 ### 💾Wczytywanie danych
 Wczytywanie danych realizuje sie za pomocą funkcji Wektor *wczyt, która zwarca nam wskaźnik na nowo zaalokowane dane - czyli adres na pierwszy element do tych danych, w których znajduje się tablica struktur. 
-Algorytm wczytywania oparty jest na dynamicznym alokowaniu pamięci az pomocą funkcji $realloc()$ - za każdym razem, gdy rozmiar naszej tablicy struktur jest mniejszy od pola $.capacity$ to zwiększamy zmienną $.capacity$ dwukrotnie i przydzielamy świeżo zaalokowaną pamięć dla naszej tablicy struktur Wektor.
+Algorytm wczytywania oparty jest na dynamicznym alokowaniu pamięci za pomocą funkcji $realloc()$ - za każdym razem, gdy rozmiar naszej tablicy struktur jest mniejszy od pola $.capacity$ to zwiększamy zmienną $.capacity$ dwukrotnie i przydzielamy świeżo zaalokowaną pamięć dla naszej tablicy struktur Wektor.
 
-Czytamy z pliku za pomocą funkcji $fgets()$, która zapisuje w zmiennej $buffer$ o rozmiarze $BUFSIZE$, dokładnie jeden wiersz z pliku. Następnie wartości będące w zmiennej $buffer$ przypisujemy za pomocą funkcji sscanf() do konkretnych pól tablicy struktury Wektor. 
+Czytamy z pliku za pomocą funkcji $fgets()$, która zapisuje w zmiennej $buffer$ o rozmiarze $BUF-SIZE$, dokładnie jeden wiersz z pliku. Następnie wartości będące w zmiennej $buffer$ przypisujemy za pomocą funkcji $sscanf()$ do konkretnych pól tablicy struktury Wektor. 
 
-Zmienna $buffer$ jest nadpisywana w każdej iteraacji,dlatego przed wywołaniem pętli, która kończy się tylko gdy w pliku zabraknie wierszy również wywołujemy funkcje $fgets()$ która zapisze pierwszy wiersz(nagłówek), ponieważ znajdują się tam śmieci i nie chcemy żeby one trafiły do naszej tablicy struktur Wektor. Gdy wejdziemy do pętli ten nagłówek nam się automatycznie nadpisze i w zmiennej $buffer$ zostaną
-chciane przez nas zmienne.
+Zmienna $buffer$ jest nadpisywana w każdej iteracji, dlatego przed wywołaniem pętli, która kończy się tylko gdy w pliku zabraknie wierszy. 
+Wywołujemy funkcje $fgets()$ która zapisze pierwszy wiersz(nagłówek) do zmiennej $buffer$, ponieważ w nagłówku znajdują się śmieci, których nie aby znalazły się w naszej tablicy struktur Wektor. 
+Zatem, gdy wejdziemy do pętli ten nagłówek nam się automatycznie nadpisze i w zmiennej $buffer$ zostaną ważne dla nas zmienne ($x, y, z, label$).
 
 Na koniec, jeśli zaalokowaliśmy zbyt wiele pamięci to za pomocą funkcji $realloc()$ alokujemy pamięć na dokładną liczbę elementów w naszej tablicy.
 
@@ -47,24 +48,26 @@ Pierwiastek został pominięty w celu usprawnienia obliczeń oraz nie był on po
 
 ### 💡Logika działania
 Algorytm działa wobec następującego schematu:
-  1. Obliczamy odległość wektora testowego do każdego punktu ze zbioru treningowego.
-  2. Znajdujemy najbliższego sąsiada za pomoca prostej instrukcji $if$ - jeśli odległość do danego wektora w danej iteracji była mniejsze od poprzedniej to do zmiennej $min_dist$ przypisujemy wartośc obliczonej w tej iteracji odległości
-  3. Jeśli instrukcja warunkowa zostanie spełniona to również do zmiennej $type$ przypisujemy pole struktury $.type$ aktualnie oblicznego wektora treningowego
-  4. Gdy obliczymy już odległości dla wszystkich punktów ze zbioru treningoweo i znajdziemy najbliższego sąsiada to wychodząc z pętli $j$ i wkraczając do pętli $i$ (pętla iterująca przez wektor testowy) sprawdzy w instrukcji $if$ czy typ naszego najbliższego sąsiada zgadza się z polem $.type$ aktualnego wektora testowego.
-  5. Jeśli tak zwiększamy zmienną $local-hits$ w przeciwym wypadku zmienną $local-missesd$. Natomiast za każdym razem zwiększamy zmienną $local-processed$.
+  1. Obliczamy odległość wektora testowego do każdego punktu ze zbioru treningowego,
+  2. Znajdujemy najbliższego sąsiada za pomoca prostej instrukcji $if$ - jeśli odległość do danego wektora w danej iteracji była mniejsze od poprzedniej to do zmiennej $min-dist$ przypisujemy wartośc obliczonej w tej iteracji odległości.
+  3. Jeśli instrukcja warunkowa zostanie spełniona to również do zmiennej $type$ przypisujemy pole struktury $.type$ aktualnie oblicznego wektora treningowego,
+  4. Gdy obliczymy już odległości dla wszystkich punktów ze zbioru treningowego i znajdziemy najbliższego sąsiada to wychodząc z pętli $j$ i wkraczając do pętli $i$ (pętla iterująca przez wektor testowy) sprawdzamy w instrukcji $if$ czy typ naszego najbliższego sąsiada zgadza się z polem $.type$ aktualnego wektora testowego,
+  5. Jeśli tak zwiększamy zmienną $local-hits$ w przeciwym wypadku zwiększamy zmienną $local-missesd$. Natomiast po każdej iteracji pętli $i$ zwiększamy zmienną $local-processed$.
 
 Zastosowano niezbędne środki, aby nie dochodziło do tzw. racing conditions poprzez zastosowanie mutexów, barier oraz zmiennych warunkowych.
 Podczas analizy w czasie rzeczywistym możliwe są następujące czynności:
-  1. [P] Wyświetlrezulaty
+  1. [P] Wyświetl rezulaty
   2. [W] Wstrzymaj/Wznów działanie
   3. [R] Reset
   4. [Z] Zakończ program
 
 Wątki obliczeniowe modyfikują wspólne zmienne tylko co 20 iteracji pętli $i$.
-Po zakończeniu pęlti pętli $i$, czyli po przeanalizowaniu wszystkcih wektorów ze zbioru testowego, aktualizujemy statystyki, które mogły się nie załapać przez aktualizację statystyk globalnych co modulo 20.
+Po zakończeniu pęlti $i$, czyli po przeanalizowaniu wszystkcih wektorów ze zbioru testowego, aktualizujemy statystyki, które mogły się nie załapać przez aktualizację statystyk globalnych co 20 iteracji pętli $i$.
 
-W celu przyspieszenia obliczania danych zastosowaliśmy paralelizację w taki sposób, że każdy wątek posiada własne ID. Od tego właśnie ID zaczyna pętle z wektorami testowymi, ta pętla ma krok $NUM-THREAD$ dzięki czemu każdy wątek będzie obliczał inny wektor testowy dzięki temu nie będą się one na siebie nakładać.
-Zwiększy to czas analizy danych.
+W celu przyspieszenia obliczania danych zastosowaliśmy paralelizację w taki sposób, że każdy wątek posiada własne ID. Od tego ID wątki zaczynają pętle z wektorami testowymi. 
+Ta pętla ma krok $NUM-THREAD$ dzięki czemu każdy wątek będzie obliczał inny wektor testowy co zoptymalizuje pracę i każdy wątek będzie miał do oblicznia taką wartość: $dane-watku->size_test/5$, zamiast przeiterowania po całym zbiorze testowym. 
+Dzieki temu wątki nie wykonują "podwójnej pracy" i nie obliczają wartości odległości dla tych samych wartości wektrów ze zbioru testowego - co byłoby bez sensu.
+Takie działanie znacznie zmniejszy czas analizy danych.
 
 ### 📊Ocena klasyfikacji
 Wzór na obliczenia dokładności naszych danych:
