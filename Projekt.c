@@ -208,10 +208,10 @@ void *calc_thread(void *arg)
         continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
     }
 end:
-    pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
-    dane_watku->is_finished = true; // zmiana stanu obliczen na finished
-    if (info->thread_id == 0)
+    int ret = pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
+    if (ret == PTHREAD_BARRIER_SERIAL_THREAD) //tylko jeden watek wypisuje dane i ustawia flage
     {
+        dane_watku->is_finished = true; // zmiana stanu obliczen na finished
         printf("\n--- OSTATECZNE DANE ---\n");
         printf("Postep:      %zu / %zu [%.1f%%]\n", dane_watku->processed, dane_watku->total, 100 * ((double)dane_watku->processed / dane_watku->total));
         printf("Trafienia:   %d\n", dane_watku->hits);
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
     free(train_data);
     free(test_data);
     end = clock();
-    double time = ((double)(end - start))/NUM_THREADS;
+    double time = ((double)(end - start))/NUM_THREADS; //dzielimy przez liczbe watkow aby wynik byl prawidlowy bo inaczej funnkcja clock() zsumowala by czas ile dzialal jeden watek i dodala do wszystkich
     double time_taken = time/CLOCKS_PER_SEC;
     printf("[main]Czas wykonania programu wynosi: %lf\n", time_taken);
     printf("[main]Koncze dzialanie\n");
