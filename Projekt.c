@@ -114,7 +114,7 @@ void *calc_thread(void *arg)
     ThreadInfo *info = (ThreadInfo *)arg;
     DaneWatku *dane_watku = info->data;
 
-    dane_watku->is_finished = false;
+    
     int local_hits;   
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
@@ -139,7 +139,7 @@ void *calc_thread(void *arg)
 
         // inne watki czekaja az skonczy sie czyszczenie
         pthread_barrier_wait(&barrier);
-        for (size_t i = info->thread_id; i < dane_watku->size_test; i += NUM_THREADS) // watki skacza po zbiorze testowym
+        for (size_t i = info->thread_id; i < dane_watku->size_test; i += NUM_THREADS) // watki iteruja po zbiorze testowym
         {
             pthread_mutex_lock(&mutex);
             while (dane_watku->is_paused)         // jesli false to komenda pthread_cond_wait jest pomijana i watek kontynuuje dalej obliczenia
@@ -162,6 +162,7 @@ void *calc_thread(void *arg)
             char type = ' ';               // puste pole do przechowywanie typu
             for (size_t j = 0; j < dane_watku->size_train; j++)
             {
+                //watki tylko czytaja wiec nie potrzebujemy mutexa
                 double dx = dane_watku->wektor_train[j].x - dane_watku->wektor_test[i].x;
                 double dy = dane_watku->wektor_train[j].y - dane_watku->wektor_test[i].y;
                 double dz = dane_watku->wektor_train[j].z - dane_watku->wektor_test[i].z;
@@ -191,7 +192,7 @@ void *calc_thread(void *arg)
                 local_processed = 0;
             }
         }
-        // Aktualizujemy resztki statystyk, które nie załapały się na modulo 19
+        // Aktualizujemy resztki statystyk, które nie załapały się na modulo 20
         pthread_mutex_lock(&mutex);
         dane_watku->hits += local_hits;
         dane_watku->misses += local_misses;
@@ -248,20 +249,21 @@ void *pause_thread(void *arg)
             if (c == 'p' || c == 'P')
             {
                 pthread_mutex_lock(&mutex);
-                unsigned long h = dane->hits;
-                unsigned long m = dane->misses;
+                int h = dane->hits;
+                int m = dane->misses;
                 size_t state = dane->processed;
                 size_t total = dane->total;
+                bool pause = dane->is_paused;
                 pthread_mutex_unlock(&mutex);
                 double percent = ((double)state / total) * 100;
                 double ratio = (double)h / (h + m);
                 printf("\n--- STATUS OBLICZEN ---\n");
                 printf("Postep:      %zu / %zu [%.3lf]\n", state, total, percent);
-                printf("Trafienia:   %lu\n", h);
-                printf("Pudla:       %lu\n", m);
+                printf("Trafienia:   %d\n", h);
+                printf("Pudla:       %d\n", m);
                 printf("Dokladnosc:  %.3f\n", ratio);
                 printf("-----------------------\n");
-                if (dane->is_paused)
+                if (pause)
                     printf("Stan obliczen: Wstrzymany\n");
                 else
                     printf("Stan obliczen: Uruchomiony\n");
@@ -327,7 +329,7 @@ int main(int argc, char *argv[])
     dane_watku.stop_request = false;
     dane_watku.is_paused = false;
     dane_watku.reset = false;
-
+    dane_watku.is_finished = false;
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
     pthread_barrier_init(&barrier, NULL, NUM_THREADS);
