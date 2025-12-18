@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <poll.h> //funkcja poll
 #include <pthread.h>
@@ -17,9 +16,9 @@ char buffer[BUF_SIZE];
 
 pthread_mutex_t mutex;
 pthread_cond_t cond;
-pthread_barrier_t barrier;
+pthread_barrier_t barrier; 
 
-const char *filename_train = "train.csv";
+const char *filename_train = "train.csv"; 
 const char *filename_test = "test.csv";
 
 typedef struct
@@ -68,7 +67,7 @@ Wektor *wczyt(const char *filename, Memory *mem)
         printf("Error opening file\n");
         exit(1);
     }
-    if (fgets(buffer, BUF_SIZE, pf) == NULL) // ignorujemy nagłówek, bo nie zawiera zadnych danych
+    if (fgets(buffer, BUF_SIZE, pf) == NULL) // ignorujemy nagłówek, bo nie zawiera zadnych danych 
     {
         printf("Blad odczytu pierwszej linii z pliku %s\n", filename);
         fclose(pf);
@@ -115,7 +114,7 @@ void *calc_thread(void *arg)
     DaneWatku *dane_watku = info->data;
 
     
-    int local_hits;   
+    int local_hits; 
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
 
@@ -185,7 +184,7 @@ void *calc_thread(void *arg)
                 pthread_mutex_lock(&mutex);
                 dane_watku->hits += local_hits;
                 dane_watku->misses += local_misses;
-                dane_watku->processed += local_processed;
+                dane_watku->processed += local_processed; 
                 pthread_mutex_unlock(&mutex);
                 local_hits = 0;
                 local_misses = 0;

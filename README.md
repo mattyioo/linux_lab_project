@@ -65,8 +65,8 @@ Wątki obliczeniowe modyfikują wspólne zmienne tylko co 20 iteracji pętli $i$
 Po zakończeniu pęlti $i$, czyli po przeanalizowaniu wszystkcih wektorów ze zbioru testowego, aktualizujemy statystyki, które mogły się nie załapać przez aktualizację statystyk globalnych co 20 iteracji pętli $i$.
 
 W celu przyspieszenia obliczania danych zastosowaliśmy paralelizację w taki sposób, że każdy wątek posiada własne ID. Od tego ID wątki zaczynają pętle z wektorami testowymi. 
-Ta pętla ma krok $NUM-THREAD$ dzięki czemu każdy wątek będzie obliczał inny wektor testowy co zoptymalizuje pracę i każdy wątek będzie miał do oblicznia taką wartość: $dane-watku->size_test/5$, zamiast przeiterowania po całym zbiorze testowym. 
-Dzieki temu wątki nie wykonują "podwójnej pracy" i nie obliczają wartości odległości dla tych samych wartości wektrów ze zbioru testowego - co byłoby bez sensu.
+Ta pętla ma krok $NUM-THREAD$ dzięki czemu każdy wątek będzie obliczał inny wektor testowy co zoptymalizuje pracę i każdy wątek będzie miał do oblicznia taką wartość: $dane-watku->size-test/5$, zamiast przeiterowania po całym zbiorze testowym. 
+Dzieki temu wątki nie wykonują "podwójnej pracy" i nie obliczają wartości odległości dla tych samych wartości wektorów ze zbioru testowego - co byłoby bez sensu.
 Takie działanie znacznie zmniejszy czas analizy danych.
 
 ### 📊Ocena klasyfikacji
