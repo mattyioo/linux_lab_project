@@ -16,9 +16,9 @@ char buffer[BUF_SIZE];
 
 pthread_mutex_t mutex;
 pthread_cond_t cond;
-pthread_barrier_t barrier; 
+pthread_barrier_t barrier;
 
-const char *filename_train = "train.csv"; 
+const char *filename_train = "train.csv";
 const char *filename_test = "test.csv";
 
 typedef struct
@@ -67,7 +67,7 @@ Wektor *wczyt(const char *filename, Memory *mem)
         printf("Error opening file\n");
         exit(1);
     }
-    if (fgets(buffer, BUF_SIZE, pf) == NULL) // ignorujemy nagłówek, bo nie zawiera zadnych danych 
+    if (fgets(buffer, BUF_SIZE, pf) == NULL) // ignorujemy nagłówek, bo nie zawiera zadnych danych
     {
         printf("Blad odczytu pierwszej linii z pliku %s\n", filename);
         fclose(pf);
@@ -113,8 +113,7 @@ void *calc_thread(void *arg)
     ThreadInfo *info = (ThreadInfo *)arg;
     DaneWatku *dane_watku = info->data;
 
-    
-    int local_hits; 
+    int local_hits;
     int local_misses; // kazdy watek posiada wlasny stos a zmienne lokalne sa na stosie wiec nie trzeba tutaj stosowac tablicy
     size_t local_processed;
 
@@ -161,7 +160,7 @@ void *calc_thread(void *arg)
             char type = ' ';               // puste pole do przechowywanie typu
             for (size_t j = 0; j < dane_watku->size_train; j++)
             {
-                //watki tylko czytaja wiec nie potrzebujemy mutexa
+                // watki tylko czytaja wiec nie potrzebujemy mutexa
                 double dx = dane_watku->wektor_train[j].x - dane_watku->wektor_test[i].x;
                 double dy = dane_watku->wektor_train[j].y - dane_watku->wektor_test[i].y;
                 double dz = dane_watku->wektor_train[j].z - dane_watku->wektor_test[i].z;
@@ -184,7 +183,7 @@ void *calc_thread(void *arg)
                 pthread_mutex_lock(&mutex);
                 dane_watku->hits += local_hits;
                 dane_watku->misses += local_misses;
-                dane_watku->processed += local_processed; 
+                dane_watku->processed += local_processed;
                 pthread_mutex_unlock(&mutex);
                 local_hits = 0;
                 local_misses = 0;
@@ -203,8 +202,9 @@ void *calc_thread(void *arg)
     handle_reset:
         continue; // zacznamy petle while od nowa, czyli oblicznia rowniez zaczna sie od nowa
     }
+    int ret;
 end:
-    int ret = pthread_barrier_wait(&barrier); // bariera po to zeby wszystkie konczyly w tym samym momencie
+    ret = pthread_barrier_wait(&barrier);     // bariera po to zeby wszystkie konczyly w tym samym momencie
     if (ret == PTHREAD_BARRIER_SERIAL_THREAD) // tylko jeden watek wypisuje dane i ustawia flage
     {
         dane_watku->is_finished = true; // zmiana stanu obliczen na finished
@@ -271,6 +271,10 @@ void *pause_thread(void *arg)
             {
                 printf("[Pause thread] Wcisnieto klawisz 'Z'\n");
                 pthread_mutex_lock(&mutex);
+                if(dane->is_paused){
+                    dane->is_paused = false;
+                    pthread_cond_broadcast(&cond);
+                }
                 dane->stop_request = true;
                 pthread_mutex_unlock(&mutex);
                 break;
