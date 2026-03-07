@@ -27,8 +27,7 @@ Algorytm wczytywania oparty jest na dynamicznym alokowaniu pamięci za pomocą f
 
 Czytamy z pliku za pomocą funkcji $fgets()$, która zapisuje w zmiennej $buffer$ o rozmiarze $BUF-SIZE$, dokładnie jeden wiersz z pliku. Następnie wartości będące w zmiennej $buffer$ przypisujemy za pomocą funkcji $sscanf()$ do konkretnych pól tablicy struktury Wektor. 
 
-Zmienna $buffer$ jest nadpisywana w każdej iteracji, dlatego przed wywołaniem pętli, która kończy się tylko gdy w pliku zabraknie wierszy. 
-Wywołujemy funkcje $fgets()$ która zapisze pierwszy wiersz(nagłówek) do zmiennej $buffer$, ponieważ w nagłówku znajdują się śmieci, których nie aby znalazły się w naszej tablicy struktur Wektor. 
+Zmienna $buffer$ jest nadpisywana w każdej iteracji, dlatego przed wywołaniem pętli, która kończy się tylko gdy w pliku zabraknie wierszy, wywołujemy funkcje $fgets()$, która zapisze pierwszy wiersz(nagłówek) do zmiennej $buffer$, ponieważ w nagłówku znajdują się śmieci, których nie potrzebujemy. 
 Zatem, gdy wejdziemy do pętli ten nagłówek nam się automatycznie nadpisze i w zmiennej $buffer$ zostaną ważne dla nas zmienne ($x, y, z, label$).
 
 Na koniec, jeśli zaalokowaliśmy zbyt wiele pamięci to za pomocą funkcji $realloc()$ alokujemy pamięć na dokładną liczbę elementów w naszej tablicy.
@@ -66,8 +65,8 @@ Po zakończeniu pęlti $i$, czyli po przeanalizowaniu wszystkcih wektorów ze zb
 
 W celu przyspieszenia obliczania danych zastosowaliśmy paralelizację w taki sposób, że każdy wątek posiada własne ID. Od tego ID wątki zaczynają pętle z wektorami testowymi. 
 Ta pętla ma krok $NUM-THREAD$ dzięki czemu każdy wątek będzie obliczał inny wektor testowy co zoptymalizuje pracę i każdy wątek będzie miał do oblicznia taką wartość: $dane-watku->size-test/5$, zamiast przeiterowania po całym zbiorze testowym. 
-Dzieki temu wątki nie wykonują "podwójnej pracy" i nie obliczają wartości odległości dla tych samych wartości wektorów ze zbioru testowego - co byłoby bez sensu.
-Takie działanie znacznie zmniejszy czas analizy danych.
+Dzieki temu wątki nie wykonują "podwójnej pracy" i nie obliczają wartości odległości dla tych samych wektorów ze zbioru testowego.
+Takie działanie znacznie zmniejsza czas analizy danych.
 
 ### 📊Ocena klasyfikacji
 Wzór na obliczenia dokładności naszych danych:
