@@ -88,5 +88,4 @@ $$
 \end{array}
 $$
 
-### Licencja
-Ten projekt jest objęty licencją MIT - zobacz plik [LICENSE](LICENSE) po więcej szczegółów.
+
